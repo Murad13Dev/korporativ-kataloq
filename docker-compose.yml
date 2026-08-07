@@ -1,0 +1,160 @@
+name: korporativ-kataloq
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16.4-alpine
+    container_name: catalog-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-catalog}
+      POSTGRES_USER: ${DB_USERNAME:-catalog}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD tələb olunur}
+      # Faster + safer default collation behaviour for the az/en/ru mix.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      # Bound to localhost only: the database is never exposed to the network.
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-catalog} -d ${DB_NAME:-catalog}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks: [catalog]
+
+  # ---------------------------------------------------------------------------
+  # Spring Boot API
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: catalog-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE:-prod}
+      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-catalog}
+      DB_USERNAME: ${DB_USERNAME:-catalog}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD tələb olunur}
+
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET tələb olunur (min 32 simvol)}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@company.az}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost}
+      API_URL: ${API_URL:-http://localhost/api}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      COOKIE_SAME_SITE: ${COOKIE_SAME_SITE:-Lax}
+
+      STORAGE_ROOT: /app/data/uploads
+      STORAGE_PUBLIC_URL: ${PUBLIC_URL:-http://localhost}/uploads
+
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-mock}
+      PAYMENT_RETURN_URL: ${PUBLIC_URL:-http://localhost}/checkout/result
+      PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:-change-me}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+
+      MAIL_ENABLED: ${MAIL_ENABLED:-false}
+      MAIL_HOST: ${MAIL_HOST:-mailhog}
+      MAIL_PORT: ${MAIL_PORT:-1025}
+      MAIL_FROM: ${MAIL_FROM:-noreply@company.az}
+      MAIL_ADMIN_TO: ${MAIL_ADMIN_TO:-admin@company.az}
+
+      # Set to ",classpath:db/demo" to seed the showcase catalog on a fresh database.
+      DEMO_DATA_LOCATION: ${DEMO_DATA_LOCATION:-}
+
+      TZ: Asia/Baku
+    volumes:
+      - uploads:/app/data/uploads
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health/readiness"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    networks: [catalog]
+
+  # ---------------------------------------------------------------------------
+  # React SPA, built and served by nginx (which also proxies the API)
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+    container_name: catalog-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${HTTP_PORT:-80}:80"
+    volumes:
+      # Serve uploaded media directly from nginx instead of through the JVM.
+      - uploads:/usr/share/nginx/uploads:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks: [catalog]
+
+  # ---------------------------------------------------------------------------
+  # Local SMTP catcher — development only.
+  # Start with: docker compose --profile dev up
+  # ---------------------------------------------------------------------------
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: catalog-mailhog
+    profiles: [dev]
+    ports:
+      - "127.0.0.1:8025:8025"
+    networks: [catalog]
+
+  # ---------------------------------------------------------------------------
+  # Nightly database + uploads backup
+  # ---------------------------------------------------------------------------
+  backup:
+    image: postgres:16.4-alpine
+    container_name: catalog-backup
+    profiles: [backup]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${DB_PASSWORD:?DB_PASSWORD tələb olunur}
+    volumes:
+      - ./backups:/backups
+      - uploads:/uploads:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      "while true; do
+         STAMP=$$(date +%Y%m%d-%H%M%S);
+         pg_dump -h postgres -U ${DB_USERNAME:-catalog} -d ${DB_NAME:-catalog} -Fc
+           -f /backups/db-$$STAMP.dump &&
+         tar czf /backups/uploads-$$STAMP.tar.gz -C /uploads . &&
+         echo \"backup $$STAMP tamamlandı\";
+         find /backups -name 'db-*.dump' -mtime +14 -delete;
+         find /backups -name 'uploads-*.tar.gz' -mtime +14 -delete;
+         sleep 86400;
+       done"
+    networks: [catalog]
+
+volumes:
+  postgres-data:
+  uploads:
+
+networks:
+  catalog:
+    driver: bridge

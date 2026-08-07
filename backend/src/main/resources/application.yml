@@ -1,0 +1,211 @@
+spring:
+  application:
+    name: catalog-platform
+
+  datasource:
+    # preferQueryMode=simple: the extended (prepared-statement) protocol requires every bind
+    # parameter's type to be resolvable at PARSE time, independently per placeholder. Every
+    # ":search IS NULL OR lower(x) LIKE ..." filter in this codebase reuses one JPQL parameter
+    # across several textually separate "?" positions — some (bare "? IS NULL") carry no type
+    # context at all, and Postgres either fails to resolve them or defaults to bytea, breaking
+    # lower()/concat(). Simple query mode inlines parameters as literals and lets Postgres infer
+    # types the same way a human-typed query would, sidestepping the whole class of failure.
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/catalog}?preferQueryMode=simple
+    username: ${DB_USERNAME:catalog}
+    password: ${DB_PASSWORD:catalog}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+      minimum-idle: 2
+      connection-timeout: 20000
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc.time_zone: UTC
+        default_batch_fetch_size: 32
+        order_inserts: true
+        order_updates: true
+        jdbc.batch_size: 30
+        query.in_clause_parameter_padding: true
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    # The demo seed (V900__demo_catalog.sql, only loaded when DEMO_DATA_LOCATION points
+    # at db/demo) is deliberately numbered far ahead so it always runs after every real
+    # schema migration, however many get added later. That means a normal new migration
+    # — V15, V16, ... — is numerically *behind* an already-applied V900, which Flyway
+    # calls "out of order" and refuses by default. This installation intentionally keeps
+    # adding schema migrations after a demo seed may already be in place, so out-of-order
+    # application has to stay allowed.
+    out-of-order: true
+    # Set DEMO_DATA_LOCATION=classpath:db/demo to also load the showcase catalog
+    # (categories, products, an active discount campaign and a promo code).
+    locations: classpath:db/migration${DEMO_DATA_LOCATION:}
+
+  servlet:
+    multipart:
+      max-file-size: ${MAX_FILE_SIZE:20MB}
+      max-request-size: ${MAX_REQUEST_SIZE:25MB}
+
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${MAIL_AUTH:false}
+      mail.smtp.starttls.enable: ${MAIL_STARTTLS:false}
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
+
+  threads:
+    virtual:
+      enabled: false
+
+server:
+  port: ${SERVER_PORT:8080}
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain,text/css,application/javascript
+    min-response-size: 1024
+  error:
+    include-message: never
+    include-stacktrace: never
+  forward-headers-strategy: framework
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+  info:
+    env:
+      enabled: false
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+
+logging:
+  level:
+    root: INFO
+    az.catalog: ${LOG_LEVEL:INFO}
+    org.hibernate.SQL: ${SQL_LOG_LEVEL:WARN}
+
+# ---------------------------------------------------------------------------
+# Application specific configuration
+# ---------------------------------------------------------------------------
+app:
+  # Public base URL of the storefront (used in e-mails, payment return URLs, sitemap)
+  public-url: ${PUBLIC_URL:http://localhost:5173}
+  api-url: ${API_URL:http://localhost:8080}
+
+  cors:
+    allowed-origins: ${CORS_ORIGINS:http://localhost:5173,http://localhost:4173}
+
+  security:
+    jwt:
+      # MUST be overridden in production. Minimum 32 bytes / 256 bits.
+      secret: ${JWT_SECRET:change-me-in-production-change-me-in-production}
+      access-token-ttl: ${JWT_ACCESS_TTL:PT30M}
+      refresh-token-ttl: ${JWT_REFRESH_TTL:P14D}
+      issuer: catalog-platform
+    refresh-cookie:
+      name: ctl_rt
+      path: /api
+      secure: ${COOKIE_SECURE:false}
+      same-site: ${COOKIE_SAME_SITE:Lax}
+    bootstrap-admin:
+      email: ${ADMIN_EMAIL:admin@company.az}
+      password: ${ADMIN_PASSWORD:}
+      first-name: ${ADMIN_FIRST_NAME:Super}
+      last-name: ${ADMIN_LAST_NAME:Admin}
+    rate-limit:
+      login-attempts-per-minute: 5
+      public-form-submissions-per-hour: 10
+
+  storage:
+    # local | s3 (only local implemented in v1)
+    type: ${STORAGE_TYPE:local}
+    local:
+      root: ${STORAGE_ROOT:./data/uploads}
+      public-base-url: ${STORAGE_PUBLIC_URL:http://localhost:8080/uploads}
+    max-image-size-bytes: 10485760
+    max-document-size-bytes: 20971520
+    max-video-size-bytes: 20971520
+    allowed-image-types: image/jpeg,image/png,image/webp,image/gif,image/svg+xml,image/avif
+    allowed-document-types: application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+    allowed-video-types: video/mp4,video/webm
+
+  mail:
+    from: ${MAIL_FROM:noreply@company.az}
+    admin-notification-to: ${MAIL_ADMIN_TO:admin@company.az}
+    enabled: ${MAIL_ENABLED:false}
+
+  commerce:
+    enabled: ${COMMERCE_ENABLED:true}
+    currency: ${DEFAULT_CURRENCY:AZN}
+    # Free shipping above this subtotal. 0 disables the rule.
+    free-delivery-threshold: ${FREE_DELIVERY_THRESHOLD:150}
+    default-delivery-price: ${DELIVERY_PRICE:5}
+    guest-checkout-enabled: true
+    # Reserve stock while the order awaits payment (minutes)
+    payment-window-minutes: 30
+
+  payment:
+    # mock | stripe
+    provider: ${PAYMENT_PROVIDER:mock}
+    return-url: ${PAYMENT_RETURN_URL:http://localhost:5173/checkout/result}
+    webhook-secret: ${PAYMENT_WEBHOOK_SECRET:mock-webhook-secret}
+    stripe:
+      secret-key: ${STRIPE_SECRET_KEY:}
+      publishable-key: ${STRIPE_PUBLISHABLE_KEY:}
+
+  chat:
+    enabled: ${CHAT_ENABLED:true}
+    # Auto-close conversations with no activity for N hours
+    auto-close-after-hours: 72
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+  jpa:
+    properties:
+      hibernate:
+        format_sql: true
+logging:
+  level:
+    az.catalog: DEBUG
+    org.hibernate.SQL: DEBUG
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+app:
+  security:
+    refresh-cookie:
+      secure: true
+      same-site: Strict

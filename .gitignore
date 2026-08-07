@@ -1,0 +1,42 @@
+# --- secrets -----------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- build output ------------------------------------------------------------
+target/
+dist/
+build/
+node_modules/
+*.jar
+*.war
+
+# --- runtime data ------------------------------------------------------------
+data/
+backups/
+uploads/
+logs/
+*.log
+
+# --- IDE ---------------------------------------------------------------------
+.idea/
+.vscode/
+*.iml
+*.iws
+.classpath
+.project
+.settings/
+
+# --- OS ----------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- misc --------------------------------------------------------------------
+.mvn/wrapper/maven-wrapper.jar
+coverage/
+.vite/
+*.local
+*.tsbuildinfo

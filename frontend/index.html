@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="az">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0F172A" />
+
+    <!--
+      Title and description are replaced at runtime from the published site
+      configuration. These values are the pre-hydration fallback.
+    -->
+    <title>Kataloq</title>
+    <meta name="description" content="Məhsul kataloqu" />
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" id="app-favicon" />
+
+    <!--
+      Fonts are self-hosted rather than pulled from a CDN: the Content-Security-Policy
+      forbids third-party origins, and a corporate catalog should not leak visitor IPs
+      to a font provider.
+
+      Drop inter-var.woff2 / sora-var.woff2 into public/fonts/ and uncomment the
+      preloads below. Until then the @font-face rules fall back to the system stack,
+      which is a deliberate no-op rather than a broken request.
+
+      <link rel="preload" href="/fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin />
+      <link rel="preload" href="/fonts/sora-var.woff2" as="font" type="font/woff2" crossorigin />
+    -->
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>
+      <div style="padding:2rem;font-family:sans-serif;text-align:center">
+        Bu sayt işləmək üçün JavaScript tələb edir. Zəhmət olmasa brauzerinizdə JavaScript-i aktiv edin.
+      </div>
+    </noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

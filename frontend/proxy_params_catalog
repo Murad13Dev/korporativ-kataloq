@@ -1,0 +1,18 @@
+# Shared proxy settings for the API location blocks.
+# Copied into /etc/nginx/ by the Dockerfile.
+
+proxy_http_version 1.1;
+proxy_set_header Host $host;
+proxy_set_header X-Real-IP $remote_addr;
+
+# Overwritten, not appended: RequestUtils trusts the left-most entry, so a
+# client-supplied X-Forwarded-For must never survive the proxy.
+proxy_set_header X-Forwarded-For $remote_addr;
+proxy_set_header X-Forwarded-Proto $scheme;
+proxy_set_header X-Forwarded-Host $host;
+proxy_set_header Connection "";
+
+proxy_connect_timeout 10s;
+proxy_send_timeout 60s;
+proxy_read_timeout 60s;
+proxy_buffering on;
