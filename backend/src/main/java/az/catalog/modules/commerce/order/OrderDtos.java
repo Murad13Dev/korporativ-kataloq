@@ -118,6 +118,7 @@ public final class OrderDtos {
             BigDecimal discountTotal,
             BigDecimal promoDiscount,
             String promoCode,
+            BigDecimal corporateDiscountAmount,
             BigDecimal deliveryPrice,
             BigDecimal total,
             BigDecimal totalSaving,

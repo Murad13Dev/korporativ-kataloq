@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useMutation } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { AlertCircle, Minus, Plus, ShoppingBag, Tag, Trash2, Truck, X } from 'lucide-react';
+import { AlertCircle, FileText, Minus, Plus, ShoppingBag, Tag, Trash2, Truck, X } from 'lucide-react';
 import { InlinePrice } from '@/components/catalog/PriceDisplay';
 import { DiscountPill } from '@/components/catalog/DiscountRibbon';
 import { SectionLoader } from '@/components/ui/PageLoader';
+import { useToast } from '@/components/ui/Toast';
 import {
   useApplyPromoCode,
   useCart,
@@ -12,6 +14,8 @@ import {
   useRemovePromoCode,
   useUpdateCartItem,
 } from '@/hooks/useCart';
+import { useCustomerAuth } from '@/hooks/useCustomerAuth';
+import { ApiError, postData } from '@/lib/api';
 import { formatPrice } from '@/lib/format';
 import type { CartNotice } from '@/types/api';
 
@@ -32,6 +36,8 @@ export default function CartPage() {
   const applyPromo = useApplyPromoCode();
   const removePromo = useRemovePromoCode();
   const [promoInput, setPromoInput] = useState('');
+  const [quoteModalOpen, setQuoteModalOpen] = useState(false);
+  const { customer } = useCustomerAuth();
 
   if (isLoading) {
     return <SectionLoader label="Səbət yüklənir…" />;
@@ -308,8 +314,177 @@ export default function CartPage() {
             >
               Alış-verişə davam et
             </Link>
+
+            {customer && (
+              <button
+                type="button"
+                onClick={() => setQuoteModalOpen(true)}
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-[var(--radius-button)] border border-[var(--color-border)] px-4 py-2.5 text-sm font-medium text-[var(--color-body)] transition-colors hover:bg-[var(--color-muted)] hover:text-[var(--color-heading)]"
+              >
+                <FileText size={15} aria-hidden="true" />
+                Böyük sifariş üçün təklif istə
+              </button>
+            )}
           </div>
         </aside>
+      </div>
+
+      {quoteModalOpen && (
+        <QuoteRequestModal
+          items={cart.items.map((line) => ({ productId: line.productId, quantity: line.quantity, name: line.name }))}
+          onClose={() => setQuoteModalOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Turns the current cart into an RFQ — the bulk-order path for a buyer who wants a
+ * negotiated price rather than the standard checkout. Reuses whatever is already in the
+ * cart rather than a separate product picker, since that is exactly what the shopper
+ * was already building.
+ */
+function QuoteRequestModal({
+  items,
+  onClose,
+}: {
+  items: { productId: number; quantity: number; name: string }[];
+  onClose: () => void;
+}) {
+  const { customer } = useCustomerAuth();
+  const toast = useToast();
+  const [contactName, setContactName] = useState(
+    customer ? `${customer.firstName} ${customer.lastName}` : '',
+  );
+  const [contactEmail, setContactEmail] = useState(customer?.email ?? '');
+  const [contactPhone, setContactPhone] = useState(customer?.phone ?? '');
+  const [note, setNote] = useState('');
+  const [sent, setSent] = useState(false);
+
+  const submit = useMutation({
+    mutationFn: () =>
+      postData('/customer/quote-requests', {
+        contactName,
+        contactEmail,
+        contactPhone: contactPhone || undefined,
+        note: note || undefined,
+        items: items.map(({ productId, quantity }) => ({ productId, quantity })),
+      }),
+    onSuccess: () => setSent(true),
+    onError: (error: ApiError) => toast.error(error.message),
+  });
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        className="w-full max-w-md rounded-[var(--radius-card)] bg-[var(--color-surface)] p-6 shadow-[var(--shadow-popover)]"
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Təklif sorğusu"
+      >
+        {sent ? (
+          <div className="py-4 text-center">
+            <FileText size={28} className="mx-auto mb-3 text-[var(--color-success)]" aria-hidden="true" />
+            <h2 className="text-lg font-bold text-[var(--color-heading)]">Sorğunuz göndərildi</h2>
+            <p className="mt-1.5 text-sm text-[var(--color-body)]">
+              Komandamız qısa zamanda sizə fərdi qiymət təklifi hazırlayacaq. Sorğunuzu hesabınızda
+              "Təklif sorğuları" bölməsindən izləyə bilərsiniz.
+            </p>
+            <button
+              type="button"
+              onClick={onClose}
+              className="mt-5 rounded-[var(--radius-button)] bg-[var(--color-primary)] px-5 py-2.5 text-sm font-semibold text-[var(--color-primary-contrast)]"
+            >
+              Bağla
+            </button>
+          </div>
+        ) : (
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              submit.mutate();
+            }}
+          >
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-[var(--color-heading)]">Təklif sorğusu</h2>
+                <p className="mt-1 text-sm text-[var(--color-body)]">
+                  Səbətinizdəki {items.length} məhsul üçün topdan qiymət təklifi istəyin.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Bağla"
+                className="shrink-0 rounded p-1 text-[var(--color-subtle)] hover:bg-[var(--color-muted)]"
+              >
+                <X size={18} aria-hidden="true" />
+              </button>
+            </div>
+
+            <ul className="mb-4 max-h-32 space-y-1 overflow-y-auto rounded-[var(--radius-button)] bg-[var(--color-muted)] p-3 text-xs text-[var(--color-body)]">
+              {items.map((item) => (
+                <li key={item.productId}>
+                  {item.quantity} × {item.name}
+                </li>
+              ))}
+            </ul>
+
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-[var(--color-heading)]">Ad Soyad</label>
+                <input
+                  required
+                  value={contactName}
+                  onChange={(event) => setContactName(event.target.value)}
+                  className="w-full rounded-[var(--radius-input)] border border-[var(--color-border)] bg-[var(--color-canvas)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-[var(--color-heading)]">E-poçt</label>
+                <input
+                  required
+                  type="email"
+                  value={contactEmail}
+                  onChange={(event) => setContactEmail(event.target.value)}
+                  className="w-full rounded-[var(--radius-input)] border border-[var(--color-border)] bg-[var(--color-canvas)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-[var(--color-heading)]">Telefon</label>
+                <input
+                  value={contactPhone}
+                  onChange={(event) => setContactPhone(event.target.value)}
+                  className="w-full rounded-[var(--radius-input)] border border-[var(--color-border)] bg-[var(--color-canvas)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-[var(--color-heading)]">Qeyd</label>
+                <textarea
+                  rows={3}
+                  value={note}
+                  onChange={(event) => setNote(event.target.value)}
+                  placeholder="Çatdırılma müddəti, ödəniş şərtləri və s."
+                  className="w-full resize-none rounded-[var(--radius-input)] border border-[var(--color-border)] bg-[var(--color-canvas)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={submit.isPending}
+              className="mt-5 w-full rounded-[var(--radius-button)] bg-[var(--color-primary)] px-5 py-2.5 text-sm font-semibold text-[var(--color-primary-contrast)] disabled:opacity-50"
+            >
+              {submit.isPending ? 'Göndərilir…' : 'Sorğunu göndər'}
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );

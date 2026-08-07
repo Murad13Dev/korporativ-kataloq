@@ -25,6 +25,7 @@
         <hypersistence.version>3.9.0</hypersistence.version>
         <owasp.sanitizer.version>20240325.1</owasp.sanitizer.version>
         <testcontainers.version>1.20.4</testcontainers.version>
+        <stripe.version>24.16.0</stripe.version>
     </properties>
 
     <dependencies>
@@ -109,6 +110,13 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- Payments -->
+        <dependency>
+            <groupId>com.stripe</groupId>
+            <artifactId>stripe-java</artifactId>
+            <version>${stripe.version}</version>
         </dependency>
 
         <!-- Docs -->

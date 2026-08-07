@@ -122,6 +122,11 @@ public class Order extends BaseEntity {
     @Column(name = "promo_code", length = 48)
     private String promoCode;
 
+    /** The buyer's company's negotiated rate, applied on top of any promo/campaign saving. */
+    @Column(name = "corporate_discount_amount", nullable = false, precision = 14, scale = 2)
+    @Builder.Default
+    private BigDecimal corporateDiscountAmount = BigDecimal.ZERO;
+
     @Column(name = "delivery_price", nullable = false, precision = 14, scale = 2)
     @Builder.Default
     private BigDecimal deliveryPrice = BigDecimal.ZERO;
@@ -182,7 +187,7 @@ public class Order extends BaseEntity {
     // --- behaviour --------------------------------------------------------
 
     public BigDecimal totalSaving() {
-        return discountTotal.add(promoDiscount);
+        return discountTotal.add(promoDiscount).add(corporateDiscountAmount);
     }
 
     public int totalQuantity() {

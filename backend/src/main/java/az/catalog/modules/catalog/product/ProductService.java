@@ -51,6 +51,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ProductService {
 
+    /** Below this trigram similarity a "match" is really just noise. */
+    private static final double SIMILARITY_THRESHOLD = 0.25;
+    private static final int MAX_SIMILAR_RESULTS = 40;
+
     private final ProductRepository repository;
     private final ProductVariantRepository variantRepository;
     private final ProductReviewRepository reviewRepository;
@@ -97,6 +101,22 @@ public class ProductService {
         }
 
         Page<Product> page = repository.findAll(specification, pageable);
+
+        // A substring search that comes back completely empty gets one more try with
+        // trigram similarity, so a misspelling ("krslo") still surfaces something instead
+        // of a dead end. Only fires on a genuine zero-result search, never to pad out an
+        // otherwise-short later page.
+        if (page.getTotalElements() == 0 && filter.hasSearch()) {
+            List<Long> similarIds = repository.findSimilarProductIds(
+                    filter.search().trim(), language, SIMILARITY_THRESHOLD, MAX_SIMILAR_RESULTS);
+            if (!similarIds.isEmpty()) {
+                Specification<Product> fuzzy = ProductSpecifications
+                        .build(filter.withSearch(null), language, categoryIds, discountedIds)
+                        .and(ProductSpecifications.idIn(similarIds));
+                page = repository.findAll(fuzzy, pageable);
+            }
+        }
+
         return mapCards(page, language);
     }
 
@@ -228,6 +248,20 @@ public class ProductService {
                     .forEach(related::add);
         }
         return mapCards(related, language);
+    }
+
+    /**
+     * "Bunu alanlar bunu da aldı" — statistical, computed straight from order history
+     * rather than curated like {@link #related}. Two products only show up together here
+     * because customers actually bought them in the same order, not because an admin
+     * linked them or they share a category.
+     */
+    @Transactional(readOnly = true)
+    public List<ProductDtos.ProductCard> alsoBought(String slug, String language, int limit) {
+        Product product = repository.findPublishedBySlug(slug)
+                .orElseThrow(() -> ApiException.notFoundBySlug("Məhsul", slug));
+        List<Long> ids = repository.findCoPurchasedProductIds(product.getId(), limit);
+        return byIds(ids, language);
     }
 
     // =======================================================================

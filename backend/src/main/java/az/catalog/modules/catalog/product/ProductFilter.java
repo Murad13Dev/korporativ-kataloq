@@ -38,4 +38,10 @@ public record ProductFilter(
     public boolean hasSearch() {
         return search != null && !search.isBlank();
     }
+
+    /** Same filter with the search term swapped out — used for the trigram fallback pass. */
+    public ProductFilter withSearch(String newSearch) {
+        return new ProductFilter(newSearch, categoryId, categorySlug, featured, isNew, discounted,
+                inStock, lowStock, minPrice, maxPrice, attributeOptionIds, excludeIds, status);
+    }
 }

@@ -238,4 +238,44 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
             ORDER BY p.id
             """)
     List<SlugAndUpdatedAt> findAllPublishedSlugs();
+
+    // --- typo-tolerant search fallback ------------------------------------------
+
+    /**
+     * Trigram similarity over the product name (plus SKU) — only consulted when the
+     * substring search in {@link ProductSpecifications#matchesSearch} returns nothing,
+     * so a misspelled query still surfaces something instead of an empty grid.
+     */
+    @Query(value = """
+            SELECT p.id FROM products p
+            JOIN product_translations pt ON pt.product_id = p.id AND pt.language_code = :language
+            WHERE p.deleted_at IS NULL AND p.status = 'ACTIVE'
+              AND (word_similarity(:term, pt.name) > :threshold OR word_similarity(:term, p.sku) > :threshold)
+            ORDER BY GREATEST(word_similarity(:term, pt.name), word_similarity(:term, p.sku)) DESC
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<Long> findSimilarProductIds(@Param("term") String term, @Param("language") String language,
+                                     @Param("threshold") double threshold, @Param("limit") int limit);
+
+    // --- co-purchase recommendations --------------------------------------------
+
+    /**
+     * "Customers who bought this also bought" — real order co-occurrence rather than a
+     * curated relation or a same-category guess. Cancelled and expired orders are excluded
+     * so an abandoned or reversed purchase never counts as a signal.
+     */
+    @Query(value = """
+            SELECT oi2.product_id, COUNT(DISTINCT oi1.order_id) AS times
+            FROM order_items oi1
+            JOIN order_items oi2 ON oi2.order_id = oi1.order_id AND oi2.product_id <> oi1.product_id
+            JOIN orders o ON o.id = oi1.order_id
+            JOIN products p ON p.id = oi2.product_id
+            WHERE oi1.product_id = :productId
+              AND o.status NOT IN ('CANCELLED', 'EXPIRED')
+              AND p.deleted_at IS NULL AND p.status = 'ACTIVE'
+            GROUP BY oi2.product_id
+            ORDER BY times DESC
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<Long> findCoPurchasedProductIds(@Param("productId") Long productId, @Param("limit") int limit);
 }

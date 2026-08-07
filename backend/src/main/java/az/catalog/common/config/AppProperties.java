@@ -131,6 +131,8 @@ public class AppProperties {
         public static class Stripe {
             private String secretKey = "";
             private String publishableKey = "";
+            /** Distinct from the generic {@code webhookSecret} above — Stripe signs with its own. */
+            private String webhookSecret = "";
         }
     }
 

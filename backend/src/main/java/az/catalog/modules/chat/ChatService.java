@@ -8,6 +8,7 @@ import az.catalog.common.security.SecurityUtils;
 import az.catalog.common.util.HtmlSanitizer;
 import az.catalog.modules.commerce.customer.Customer;
 import az.catalog.modules.commerce.customer.CustomerRepository;
+import az.catalog.modules.content.FaqRepository;
 import az.catalog.modules.media.MediaService;
 import az.catalog.modules.siteconfig.SiteConfigurationService;
 import az.catalog.modules.user.UserRepository;
@@ -45,10 +46,13 @@ import java.util.Optional;
 public class ChatService {
 
     private static final int PREVIEW_LENGTH = 160;
+    /** Below this trigram similarity, a "matching" FAQ is really just noise. */
+    private static final double FAQ_MATCH_THRESHOLD = 0.3;
 
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
     private final QuickReplyRepository quickReplyRepository;
+    private final FaqRepository faqRepository;
     private final CustomerRepository customerRepository;
     private final UserRepository userRepository;
     private final MediaService mediaService;
@@ -105,6 +109,7 @@ public class ChatService {
 
         if (request != null && request.message() != null && !request.message().isBlank()) {
             appendCustomerMessage(conversation, request.message(), null);
+            suggestFaqAnswer(conversation, request.message());
         }
 
         log.info("Opened conversation {} for {}", conversation.getId(), conversation.displayName());
@@ -283,6 +288,18 @@ public class ChatService {
         return appendMessage(conversation, Message.SenderType.CUSTOMER,
                 customer == null ? null : customer.getId(),
                 conversation.displayName(), text, Message.MessageType.TEXT, mediaId, true);
+    }
+
+    /**
+     * Only fires on the very first message of a thread — see the class javadoc on why an
+     * auto-reply belongs at "I have a question" rather than repeated on every follow-up,
+     * where it would just talk over the human conversation already under way. A miss is
+     * silent: no bot message beats a wrong one.
+     */
+    private void suggestFaqAnswer(Conversation conversation, String customerMessage) {
+        faqRepository.findBestMatchingAnswer(customerMessage, conversation.getLocale(), FAQ_MATCH_THRESHOLD)
+                .ifPresent(answer -> appendMessage(conversation, Message.SenderType.BOT, null,
+                        "Virtual Asistan", answer, Message.MessageType.TEXT, null, false));
     }
 
     /**

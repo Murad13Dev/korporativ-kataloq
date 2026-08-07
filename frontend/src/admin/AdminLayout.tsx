@@ -3,7 +3,9 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
 import {
   Boxes,
+  Building2,
   ChevronDown,
+  ClipboardList,
   ExternalLink,
   FileText,
   Folders,
@@ -65,6 +67,8 @@ const NAV_GROUPS: NavGroup[] = [
     entries: [
       { to: '/admin/orders', label: 'Sifarişlər', icon: ShoppingBag, capability: 'orders.manage' },
       { to: '/admin/customers', label: 'Müştərilər', icon: UsersRound, capability: 'customers.view' },
+      { to: '/admin/companies', label: 'Şirkətlər', icon: Building2, capability: 'customers.view' },
+      { to: '/admin/quote-requests', label: 'Təklif sorğuları', icon: ClipboardList, capability: 'customers.view' },
       { to: '/admin/chat', label: 'Canlı dəstək', icon: MessageCircle, capability: 'chat.handle' },
       { to: '/admin/contact-requests', label: 'Əlaqə sorğuları', icon: Inbox, capability: 'orders.manage' },
     ],

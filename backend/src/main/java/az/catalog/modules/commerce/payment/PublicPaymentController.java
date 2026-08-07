@@ -90,6 +90,29 @@ public class PublicPaymentController {
     }
 
     /**
+     * Stripe's own webhook. Its HMAC signature is computed over the exact raw request
+     * bytes, so unlike every other provider here the body must reach the handler
+     * unparsed — binding it to a {@code Map} first would both break the signature (key
+     * order/whitespace no longer match) and fail outright on Stripe's nested JSON.
+     */
+    @Operation(summary = "Stripe webhook")
+    @PostMapping("/stripe/webhook")
+    public ResponseEntity<Map<String, Object>> stripeWebhook(
+            @RequestBody String rawBody,
+            @RequestHeader(value = "Stripe-Signature", required = false) String signature) {
+        try {
+            PaymentService.CallbackOutcome outcome =
+                    paymentService.handleRawCallback("stripe", rawBody, signature);
+            return ResponseEntity.ok(Map.of(
+                    "accepted", outcome.accepted(),
+                    "result", outcome.result()));
+        } catch (RuntimeException ex) {
+            log.error("Failed to process stripe webhook", ex);
+            return ResponseEntity.ok(Map.of("accepted", false, "result", "ERROR"));
+        }
+    }
+
+    /**
      * Always answers 200. A provider that receives anything else retries the same event
      * indefinitely; problems are recorded on the payment_events row instead.
      */

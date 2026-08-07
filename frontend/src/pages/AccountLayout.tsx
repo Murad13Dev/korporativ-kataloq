@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
-import { Award, Heart, LogOut, MapPin, Package, User } from 'lucide-react';
+import { Award, Building2, FileText, Heart, LogOut, MapPin, Package, User } from 'lucide-react';
 import { useCustomerAuth } from '@/hooks/useCustomerAuth';
 import { useSiteConfig } from '@/hooks/useSiteConfig';
 import { SectionLoader } from '@/components/ui/PageLoader';
@@ -11,6 +11,8 @@ const BASE_TABS = [
   { to: '/hesab/unvanlar', label: 'Ünvanlar', icon: MapPin },
   { to: '/hesab/sifarisler', label: 'Sifarişlər', icon: Package },
   { to: '/hesab/xallar', label: 'Xallar', icon: Award },
+  { to: '/hesab/sirket', label: 'Şirkət', icon: Building2 },
+  { to: '/hesab/teklif-sorgulari', label: 'Təklif sorğuları', icon: FileText },
 ];
 
 const WISHLIST_TAB = { to: '/hesab/sevimliler', label: 'Sevimlilər', icon: Heart };

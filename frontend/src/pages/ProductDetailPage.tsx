@@ -84,6 +84,14 @@ export function ProductDetailPage() {
     enabled: Boolean(slug),
   });
 
+  // Real order co-occurrence, not a curated link or a same-category guess — see the
+  // backend's own note on ProductService#alsoBought.
+  const alsoBoughtQuery = useQuery({
+    queryKey: ['product', slug, 'also-bought'],
+    queryFn: () => getData<ProductCardType[]>(`/public/products/${slug}/also-bought`, { limit: 4 }),
+    enabled: Boolean(slug),
+  });
+
   const product = productQuery.data;
   const recentlyViewed = useRecentlyViewed(product?.id);
 
@@ -681,6 +689,18 @@ export function ProductDetailPage() {
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             {relatedQuery.data.map((related) => (
               <ProductCard key={related.id} product={related} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ---------------- also bought (real order co-occurrence) ---------------- */}
+      {alsoBoughtQuery.data && alsoBoughtQuery.data.length > 0 && (
+        <section className="mt-16">
+          <h2 className="mb-6 text-2xl font-bold tracking-tight">Bunu alanlar bunu da aldı</h2>
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {alsoBoughtQuery.data.map((item) => (
+              <ProductCard key={item.id} product={item} />
             ))}
           </div>
         </section>

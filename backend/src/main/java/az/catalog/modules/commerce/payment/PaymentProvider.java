@@ -36,6 +36,18 @@ public interface PaymentProvider {
     CallbackResult handleCallback(Map<String, String> payload, String signature);
 
     /**
+     * Same as {@link #handleCallback}, but for a provider whose signature is computed over
+     * the exact raw request bytes (Stripe's HMAC scheme, among others) — a
+     * parsed-then-reserialised {@code Map<String, String>} would no longer hash the same,
+     * and Stripe's JSON body is nested rather than flat anyway. Providers that sign
+     * form-encoded params instead just use {@link #handleCallback}; this default delegates
+     * to it with an empty payload so implementing it is opt-in.
+     */
+    default CallbackResult handleRawCallback(String rawBody, String signature) {
+        return handleCallback(Map.of(), signature);
+    }
+
+    /**
      * Asks the provider for the authoritative status. Used when a shopper returns to the
      * site before the webhook lands, and by the reconciliation job.
      */

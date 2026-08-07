@@ -8,6 +8,9 @@ import az.catalog.modules.commerce.cart.Cart;
 import az.catalog.modules.commerce.cart.CartItem;
 import az.catalog.modules.commerce.cart.CartOwner;
 import az.catalog.modules.commerce.cart.CartService;
+import az.catalog.modules.commerce.company.CompanyMember;
+import az.catalog.modules.commerce.company.CompanyMemberRepository;
+import az.catalog.modules.commerce.company.CompanyStatus;
 import az.catalog.modules.commerce.customer.Address;
 import az.catalog.modules.commerce.customer.AddressRepository;
 import az.catalog.modules.commerce.customer.Customer;
@@ -26,6 +29,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
@@ -53,6 +57,7 @@ public class CheckoutService {
     private final OrderService orderService;
     private final CustomerRepository customerRepository;
     private final AddressRepository addressRepository;
+    private final CompanyMemberRepository companyMemberRepository;
     private final PromoCodeService promoCodeService;
     private final PromoCodeRepository promoCodeRepository;
     private final PaymentService paymentService;
@@ -174,6 +179,8 @@ public class CheckoutService {
                              CartService.Totals totals, PromoCode promo, String language,
                              HttpServletRequest httpRequest, SiteConfigSnapshot config) {
 
+        BigDecimal corporateDiscount = corporateDiscountFor(customer, totals.subtotal());
+
         Order order = Order.builder()
                 .orderNumber(generateOrderNumber())
                 .customer(customer)
@@ -189,8 +196,9 @@ public class CheckoutService {
                 .discountTotal(totals.itemDiscountTotal())
                 .promoDiscount(totals.promoDiscount())
                 .promoCode(promo == null ? null : promo.getCode())
+                .corporateDiscountAmount(corporateDiscount)
                 .deliveryPrice(totals.deliveryPrice())
-                .total(totals.total())
+                .total(totals.total().subtract(corporateDiscount))
                 .currency(config.currency())
                 .customerNote(request.customerNote())
                 .locale(language)
@@ -201,6 +209,28 @@ public class CheckoutService {
             applyShippingAddress(order, customer, request);
         }
         return order;
+    }
+
+    /**
+     * A registered customer whose company has been approved (status ACTIVE, not just
+     * requested) gets their negotiated rate off the subtotal — stacked on top of, not
+     * instead of, any campaign or promo-code saving already folded into {@code totals}.
+     */
+    private BigDecimal corporateDiscountFor(Customer customer, BigDecimal subtotal) {
+        if (customer == null) {
+            return BigDecimal.ZERO;
+        }
+        return companyMemberRepository.findByCustomerId(customer.getId())
+                .map(CompanyMember::getCompany)
+                .filter(company -> company.getStatus() == CompanyStatus.ACTIVE)
+                .filter(company -> company.getDiscountPercentage().signum() > 0)
+                .map(company -> percentOf(subtotal, company.getDiscountPercentage()))
+                .orElse(BigDecimal.ZERO);
+    }
+
+    private BigDecimal percentOf(BigDecimal amount, BigDecimal percentage) {
+        return amount.multiply(percentage)
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
     }
 
     private void applyShippingAddress(Order order, Customer customer, OrderDtos.CheckoutRequest request) {

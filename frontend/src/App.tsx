@@ -31,6 +31,8 @@ const AccountOrdersPage = lazy(() => import('@/pages/AccountOrdersPage'));
 const AccountOrderDetailPage = lazy(() => import('@/pages/AccountOrderDetailPage'));
 const AccountWishlistPage = lazy(() => import('@/pages/AccountWishlistPage'));
 const AccountLoyaltyPage = lazy(() => import('@/pages/AccountLoyaltyPage'));
+const AccountCompanyPage = lazy(() => import('@/pages/AccountCompanyPage'));
+const AccountQuotesPage = lazy(() => import('@/pages/AccountQuotesPage'));
 const OrderTrackingPage = lazy(() => import('@/pages/OrderTrackingPage'));
 const ComparePage = lazy(() => import('@/pages/ComparePage'));
 
@@ -80,6 +82,8 @@ export function App() {
               <Route path="sifarisler/:id" element={<AccountOrderDetailPage />} />
               <Route path="sevimliler" element={<AccountWishlistPage />} />
               <Route path="xallar" element={<AccountLoyaltyPage />} />
+              <Route path="sirket" element={<AccountCompanyPage />} />
+              <Route path="teklif-sorgulari" element={<AccountQuotesPage />} />
             </Route>
 
             {/*

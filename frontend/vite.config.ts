@@ -2,10 +2,66 @@
 // below is typed; it is a superset of Vite's own export.
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
+import { VitePWA } from 'vite-plugin-pwa';
 import path from 'node:path';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      // The admin panel must never run from a stale cache or serve cached data to
+      // someone who thinks they're looking at the live catalog — only the public
+      // storefront shell is precached, and only public GET endpoints get runtime
+      // caching below.
+      injectRegister: 'auto',
+      manifest: {
+        name: 'Korporativ Kataloq',
+        short_name: 'Kataloq',
+        description: 'Universal korporativ kataloq və e-ticarət platforması',
+        start_url: '/',
+        scope: '/',
+        display: 'standalone',
+        background_color: '#ffffff',
+        theme_color: '#0F172A',
+        lang: 'az',
+        icons: [
+          { src: '/pwa-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/pwa-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: '/pwa-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
+      },
+      workbox: {
+        // Admin routes opt out of the SPA offline fallback entirely — falling back to
+        // a cached shell while an admin is mid-edit would be worse than a hard error.
+        navigateFallbackDenylist: [/^\/admin/],
+        runtimeCaching: [
+          {
+            // Product photos and other uploads change rarely once published, and are
+            // the single biggest win for repeat-visit load time.
+            urlPattern: ({ url }) => url.pathname.startsWith('/uploads/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'uploads',
+              expiration: { maxEntries: 300, maxAgeSeconds: 30 * 24 * 60 * 60 },
+            },
+          },
+          {
+            // Public catalog/content reads: fresh data wins when online, cache covers
+            // flaky connections and the brief instant right after opening the app.
+            urlPattern: ({ url }) => url.pathname.startsWith('/api/public/'),
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'public-api',
+              networkTimeoutSeconds: 4,
+              expiration: { maxEntries: 200, maxAgeSeconds: 5 * 60 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
+      },
+    }),
+  ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

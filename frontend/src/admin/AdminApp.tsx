@@ -23,6 +23,8 @@ import { ChatPage } from './pages/ChatPage';
 import { ContactRequestsPage } from './pages/ContactRequestsPage';
 import { ReviewsPage } from './pages/ReviewsPage';
 import { BundlesPage } from './pages/BundlesPage';
+import { CompaniesPage } from './pages/CompaniesPage';
+import { QuoteRequestsPage } from './pages/QuoteRequestsPage';
 import { ContentBlocksPage } from './pages/ContentBlocksPage';
 import { MediaPage } from './pages/MediaPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -76,6 +78,8 @@ export default function AdminApp() {
         <Route path="orders" element={<OrdersPage />} />
         <Route path="orders/:id" element={<OrderDetailPage />} />
         <Route path="customers" element={<CustomersPage />} />
+        <Route path="companies" element={<CompaniesPage />} />
+        <Route path="quote-requests" element={<QuoteRequestsPage />} />
         <Route path="chat" element={<ChatPage />} />
         <Route path="contact-requests" element={<ContactRequestsPage />} />
 

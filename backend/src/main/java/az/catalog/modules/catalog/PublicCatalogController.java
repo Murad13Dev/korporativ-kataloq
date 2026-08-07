@@ -187,4 +187,14 @@ public class PublicCatalogController {
             @RequestParam(defaultValue = "4") int limit) {
         return DataResponse.of(productService.related(slug, language, Math.min(limit, 24)));
     }
+
+    @Operation(summary = "Bunu alanlar bunu da aldı",
+            description = "Sifariş tarixçəsindən hesablanan real birgə-alış statistikası.")
+    @GetMapping("/products/{slug}/also-bought")
+    public DataResponse<List<ProductDtos.ProductCard>> alsoBought(
+            @PathVariable String slug,
+            @RequestLanguage String language,
+            @RequestParam(defaultValue = "4") int limit) {
+        return DataResponse.of(productService.alsoBought(slug, language, Math.min(limit, 24)));
+    }
 }

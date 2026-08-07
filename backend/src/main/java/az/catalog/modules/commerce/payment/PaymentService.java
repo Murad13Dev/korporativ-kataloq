@@ -9,6 +9,7 @@ import az.catalog.modules.commerce.order.OrderService;
 import az.catalog.modules.commerce.order.OrderStatus;
 import az.catalog.modules.commerce.order.OrderStatusHistory;
 import az.catalog.modules.commerce.order.PaymentStatus;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -161,7 +162,30 @@ public class PaymentService {
                                           String signature) {
         PaymentProvider provider = provider(providerName);
         PaymentProvider.CallbackResult result = provider.handleCallback(payload, signature);
+        return processCallbackResult(providerName, result, objectMapper.valueToTree(payload));
+    }
 
+    /**
+     * Entry point for providers whose webhook signature must be verified over the raw
+     * request body — see {@link PaymentProvider#handleRawCallback}. Everything past
+     * signature interpretation (dedup, amount check, order state) is identical to the
+     * form-encoded path, so both funnel into {@link #processCallbackResult}.
+     */
+    @Transactional
+    public CallbackOutcome handleRawCallback(String providerName, String rawBody, String signature) {
+        PaymentProvider provider = provider(providerName);
+        PaymentProvider.CallbackResult result = provider.handleRawCallback(rawBody, signature);
+        JsonNode audit;
+        try {
+            audit = objectMapper.readTree(rawBody);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
+            audit = objectMapper.valueToTree(Map.of("raw", rawBody));
+        }
+        return processCallbackResult(providerName, result, audit);
+    }
+
+    private CallbackOutcome processCallbackResult(String providerName, PaymentProvider.CallbackResult result,
+                                                   JsonNode auditPayload) {
         // Duplicate delivery: recognised and dropped before it can move any state.
         if (result.externalEventId() != null
                 && eventRepository.existsByProviderAndExternalEventId(providerName, result.externalEventId())) {
@@ -173,7 +197,7 @@ public class PaymentService {
                 .provider(providerName)
                 .eventType(result.outcome().name())
                 .externalEventId(result.externalEventId())
-                .payload(objectMapper.valueToTree(payload))
+                .payload(auditPayload)
                 .signatureValid(result.signatureValid())
                 .build());
 
@@ -222,7 +246,7 @@ public class PaymentService {
 
         event.setProcessed(true);
         event.setProcessedAt(OffsetDateTime.now());
-        payment.setCallbackPayload(objectMapper.valueToTree(payload));
+        payment.setCallbackPayload(auditPayload);
 
         return new CallbackOutcome(true, result.reference(), result.outcome().name(), null);
     }

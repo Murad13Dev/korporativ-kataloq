@@ -522,12 +522,21 @@ function AdminBubble({ message }: { message: ChatMessage }) {
 
   // The operator's own side is on the right, mirroring what the visitor sees inverted.
   const fromAdmin = message.senderType === 'ADMIN';
+  // The auto-suggested FAQ reply sits on the visitor's side (it isn't the operator
+  // speaking) but still needs its own label — otherwise it reads as something the
+  // customer typed themselves, which is actively misleading in a support transcript.
+  const fromBot = message.senderType === 'BOT';
 
   return (
     <li className={clsx('flex', fromAdmin ? 'justify-end' : 'justify-start')}>
       <div className="max-w-[70%]">
-        {fromAdmin && message.senderName && (
-          <p className="mb-0.5 pe-1 text-end text-[0.6875rem] font-medium text-[var(--color-subtle)]">
+        {(fromAdmin || fromBot) && message.senderName && (
+          <p
+            className={clsx(
+              'mb-0.5 text-[0.6875rem] font-medium text-[var(--color-subtle)]',
+              fromAdmin ? 'pe-1 text-end' : 'ps-1',
+            )}
+          >
             {message.senderName}
           </p>
         )}
@@ -537,7 +546,9 @@ function AdminBubble({ message }: { message: ChatMessage }) {
             'rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed',
             fromAdmin
               ? 'rounded-ee-sm bg-[var(--color-primary)] text-[var(--color-primary-contrast)]'
-              : 'rounded-es-sm bg-[var(--color-surface)] text-[var(--color-heading)] shadow-sm',
+              : fromBot
+                ? 'rounded-es-sm bg-[var(--color-primary)]/8 text-[var(--color-heading)] shadow-sm'
+                : 'rounded-es-sm bg-[var(--color-surface)] text-[var(--color-heading)] shadow-sm',
           )}
         >
           {message.mediaUrl && (
