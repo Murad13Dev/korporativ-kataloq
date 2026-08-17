@@ -41,4 +41,8 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
 
     @Query("SELECT COUNT(c) FROM Customer c WHERE c.deletedAt IS NULL AND c.createdAt >= :since")
     long countCreatedSince(@Param("since") OffsetDateTime since);
+
+    Optional<Customer> findByReferralCodeIgnoreCase(String referralCode);
+
+    boolean existsByReferralCodeIgnoreCase(String referralCode);
 }

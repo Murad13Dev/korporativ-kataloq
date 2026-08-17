@@ -61,8 +61,11 @@
   --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 4px 12px rgb(15 23 42 / 0.06);
   --shadow-card-hover: 0 2px 4px rgb(15 23 42 / 0.06), 0 12px 28px rgb(15 23 42 / 0.1);
   --shadow-popover: 0 8px 32px rgb(15 23 42 / 0.14);
+  --shadow-glow: 0 0 0 1px color-mix(in oklab, var(--color-primary) 30%, transparent),
+                 0 12px 32px -8px color-mix(in oklab, var(--color-primary) 45%, transparent);
 
   --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* =============================================================================
@@ -169,6 +172,33 @@
   /* Numeric columns (prices, quantities) line up when digits are tabular. */
   .tabular {
     font-variant-numeric: tabular-nums;
+  }
+
+  /* A themed scrollbar reads as intentional; the OS default breaks the illusion that
+     the storefront is a designed surface rather than a stock browser chrome. Firefox
+     gets the standard thin/color pair; WebKit gets the matching pseudo-elements. */
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--color-primary) 40%, var(--color-border)) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: color-mix(in oklab, var(--color-primary) 35%, var(--color-border));
+    border-radius: 999px;
+    border: 2px solid var(--color-canvas);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-primary);
   }
 }
 
@@ -382,6 +412,159 @@
     border: 1px solid var(--color-border);
     text-align: start;
   }
+
+  /* ---------------------------------------------------------------------------
+     DECORATIVE MOTION LAYER
+     A small vocabulary of "wow" surfaces — gradient mesh, drifting orbs, marquee,
+     button sheen — built from the same brand tokens as everything else, so a
+     white-label client's colours drive these too. Every animated rule here has a
+     `prefers-reduced-motion` escape hatch at the bottom of the file.
+     ------------------------------------------------------------------------ */
+
+  /* Soft, slowly-drifting radial-gradient backdrop for hero/CTA sections. Sits behind
+     content via z-index; the section itself must be position:relative. */
+  .gradient-mesh {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .gradient-mesh::before,
+  .gradient-mesh::after {
+    content: '';
+    position: absolute;
+    width: 60cqw;
+    min-width: 340px;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    filter: blur(64px);
+    opacity: 0.35;
+  }
+
+  .gradient-mesh::before {
+    top: -18%;
+    inset-inline-start: -10%;
+    background: radial-gradient(circle, var(--color-primary), transparent 70%);
+    animation: blob-drift-a 22s ease-in-out infinite;
+  }
+
+  .gradient-mesh::after {
+    bottom: -22%;
+    inset-inline-end: -8%;
+    background: radial-gradient(circle, var(--color-accent), transparent 70%);
+    animation: blob-drift-b 26s ease-in-out infinite;
+  }
+
+  @keyframes blob-drift-a {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(4%, 6%) scale(1.08); }
+  }
+
+  @keyframes blob-drift-b {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(-5%, -4%) scale(1.1); }
+  }
+
+  /* A fine dot-grid overlay — cheap texture that keeps a flat brand-colour section
+     from reading as an empty rectangle. */
+  .dot-grid {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image: radial-gradient(color-mix(in oklab, currentColor 18%, transparent) 1.5px, transparent 1.5px);
+    background-size: 22px 22px;
+    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 40%, transparent 85%);
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 40%, transparent 85%);
+  }
+
+  /* Primary buttons get a light sweep on hover — a cheap "premium" tell that costs one
+     pseudo-element and no JS. */
+  .btn-sheen {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+
+  .btn-sheen::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: linear-gradient(115deg, transparent 20%, rgb(255 255 255 / 0.35) 45%, transparent 70%);
+    transform: translateX(-120%);
+    pointer-events: none;
+  }
+
+  .btn-sheen:hover::after {
+    transform: translateX(120%);
+    transition: transform 700ms var(--ease-out-quint);
+  }
+
+  /* Infinite horizontal marquee for trust-logo strips. Duplicated content (two copies
+     in the DOM) is what makes the loop seamless — see PartnersSection. Pauses on
+     hover/focus so a logo's link stays reachable and readable. */
+  .marquee-track {
+    display: flex;
+    width: max-content;
+    gap: 3.5rem;
+    animation: marquee-scroll 32s linear infinite;
+  }
+
+  .marquee-viewport:hover .marquee-track,
+  .marquee-viewport:focus-within .marquee-track {
+    animation-play-state: paused;
+  }
+
+  .marquee-viewport {
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent);
+    mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent);
+  }
+
+  @keyframes marquee-scroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
+  /* Gentle up/down float for hero illustrations and decorative icons. */
+  .animate-float {
+    animation: float-y 5.5s ease-in-out infinite;
+  }
+
+  @keyframes float-y {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+
+  /* Ambient glow ring used behind hero media / stat icons — a single flat blur, not a
+     box-shadow stack, so it stays cheap on low-end devices. */
+  .glow-ring {
+    box-shadow: var(--shadow-glow);
+  }
+
+  /* Slow colour pulse for "live" indicators (active discount countdowns, chat online
+     dot) — reuses the success token so it never clashes with a client's brand. */
+  .pulse-dot {
+    position: relative;
+  }
+
+  .pulse-dot::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 999px;
+    background: currentColor;
+    opacity: 0.5;
+    animation: pulse-ring 1.8s var(--ease-out-quint) infinite;
+  }
+
+  @keyframes pulse-ring {
+    0% { transform: scale(0.6); opacity: 0.55; }
+    100% { transform: scale(1.8); opacity: 0; }
+  }
 }
 
 /* =============================================================================
@@ -425,4 +608,30 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+
+  /* CSS-only staggered entrance for grids that re-render on every filter change
+     (catalog results, paginated rails) — a JS scroll-observer would either refire on
+     every keystroke or need per-item "have I already animated" bookkeeping. Capped at
+     12 items; anything past that fades in together rather than queuing visibly. */
+  .stagger-fade > * {
+    animation: fade-in-up 420ms var(--ease-out-quint) both;
+  }
+
+  @keyframes fade-in-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .stagger-fade > *:nth-child(1) { animation-delay: 0ms; }
+  .stagger-fade > *:nth-child(2) { animation-delay: 40ms; }
+  .stagger-fade > *:nth-child(3) { animation-delay: 80ms; }
+  .stagger-fade > *:nth-child(4) { animation-delay: 120ms; }
+  .stagger-fade > *:nth-child(5) { animation-delay: 160ms; }
+  .stagger-fade > *:nth-child(6) { animation-delay: 200ms; }
+  .stagger-fade > *:nth-child(7) { animation-delay: 240ms; }
+  .stagger-fade > *:nth-child(8) { animation-delay: 280ms; }
+  .stagger-fade > *:nth-child(9) { animation-delay: 320ms; }
+  .stagger-fade > *:nth-child(10) { animation-delay: 360ms; }
+  .stagger-fade > *:nth-child(11) { animation-delay: 400ms; }
+  .stagger-fade > *:nth-child(12) { animation-delay: 440ms; }
 }

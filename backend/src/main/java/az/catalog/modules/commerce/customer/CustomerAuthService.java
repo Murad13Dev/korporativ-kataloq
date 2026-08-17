@@ -48,6 +48,7 @@ public class CustomerAuthService {
     private final RateLimiterService rateLimiter;
     private final CartService cartService;
     private final MailService mailService;
+    private final ReferralService referralService;
     private final AppProperties properties;
 
     @Transactional
@@ -78,6 +79,13 @@ public class CustomerAuthService {
         customer.setStatus(Customer.Status.ACTIVE);
         customer.setMarketingOptIn(Boolean.TRUE.equals(request.marketingOptIn()));
         customer.setLastLoginAt(OffsetDateTime.now());
+
+        if (customer.getReferralCode() == null) {
+            customer.setReferralCode(referralService.generateReferralCode());
+        }
+        if (customer.getReferredByCustomerId() == null) {
+            customer.setReferredByCustomerId(referralService.resolveReferrer(request.referralCode(), email));
+        }
 
         Customer saved = customerRepository.save(customer);
         cartService.mergeGuestCart(request.cartSessionId(), saved.getId());
@@ -164,9 +172,16 @@ public class CustomerAuthService {
 
     // --- profile ------------------------------------------------------------
 
-    @Transactional(readOnly = true)
+    @Transactional
     public CustomerDtos.CustomerProfile profile(Long customerId) {
-        return CustomerDtos.CustomerProfile.from(load(customerId));
+        Customer customer = load(customerId);
+        // Self-healing for accounts created before the referral program existed — the
+        // very next time they load their profile, they get a code without needing to
+        // "re-register".
+        if (customer.getReferralCode() == null) {
+            customer.setReferralCode(referralService.generateReferralCode());
+        }
+        return CustomerDtos.CustomerProfile.from(customer);
     }
 
     @Transactional
@@ -270,6 +285,13 @@ public class CustomerAuthService {
 
     private CustomerDtos.AuthResponse authenticate(Customer customer, HttpServletRequest httpRequest,
                                                    HttpServletResponse httpResponse) {
+        // Every login/refresh/register funnels through here, so this is also where an
+        // account created before the referral program existed picks up a code — the
+        // shopper never has to do anything to get one.
+        if (customer.getReferralCode() == null) {
+            customer.setReferralCode(referralService.generateReferralCode());
+        }
+
         Duration ttl = properties.getSecurity().getJwt().getRefreshTokenTtl();
         String rawToken = jwtService.generateOpaqueToken();
 

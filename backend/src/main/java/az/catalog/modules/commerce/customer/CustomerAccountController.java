@@ -1,8 +1,10 @@
 package az.catalog.modules.commerce.customer;
 
+import az.catalog.common.config.RequestLanguage;
 import az.catalog.common.dto.ApiResponses.DataResponse;
 import az.catalog.common.dto.ApiResponses.PageResponse;
 import az.catalog.common.security.SecurityUtils;
+import az.catalog.modules.commerce.cart.CartDtos;
 import az.catalog.modules.commerce.order.OrderDtos;
 import az.catalog.modules.commerce.order.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -91,5 +93,20 @@ public class CustomerAccountController {
             @PathVariable Long id, @RequestBody(required = false) OrderDtos.CancelRequest request) {
         return DataResponse.of(orderService.cancelByCustomer(
                 id, SecurityUtils.requireCustomer().id(), request == null ? null : request.reason()));
+    }
+
+    @Operation(summary = "Yenidən sifariş et",
+            description = "Keçmiş sifarişin bütün sətirlərini bugünkü qiymətlərlə cari səbətə əlavə edir.")
+    @PostMapping("/orders/{id}/reorder")
+    public DataResponse<CartDtos.BulkAddResponse> reorder(
+            @PathVariable Long id, @RequestLanguage String language) {
+        return DataResponse.of(orderService.reorder(id, SecurityUtils.requireCustomer().id(), language));
+    }
+
+    @Operation(summary = "Qənaət kabineti",
+            description = "Kampaniya, promo kod və korporativ endirimlərdən yaranan ümumi qənaət — ömürlük və bu il.")
+    @GetMapping("/savings")
+    public DataResponse<OrderDtos.SavingsSummary> savings() {
+        return DataResponse.of(orderService.savingsSummary(SecurityUtils.requireCustomer().id()));
     }
 }

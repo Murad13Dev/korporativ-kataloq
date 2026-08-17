@@ -11,6 +11,7 @@ export interface RegisterPayload {
   companyName?: string;
   marketingOptIn?: boolean;
   termsAccepted: boolean;
+  referralCode?: string;
 }
 
 export interface LoginPayload {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Award, Copy, Gift } from 'lucide-react';
+import { Award, Copy, Gift, Sparkles } from 'lucide-react';
 import { SectionLoader } from '@/components/ui/PageLoader';
 import { useToast } from '@/components/ui/Toast';
 import { ApiError, getData, getPage, postData } from '@/lib/api';
@@ -11,6 +11,10 @@ interface Balance {
   minRedeemable: number;
   pointsPerBlock: number;
   valuePerBlock: number;
+  tierName: string;
+  nextTierName: string | null;
+  pointsToNextTier: number | null;
+  tierProgressPercent: number;
 }
 
 interface Transaction {
@@ -85,6 +89,31 @@ export default function AccountLoyaltyPage() {
           Hər {data.pointsPerBlock} xal {formatPrice(data.valuePerBlock)} endirimə çevrilir. Hər sifariş üçün
           xərclənən hər manata 1 xal qazanılır.
         </p>
+      </div>
+
+      {/* Tier reflects lifetime-earned points, not the current redeemable balance —
+          redeeming points never demotes you (see the backend's own note on this). */}
+      <div className="card p-6">
+        <div className="mb-3 flex items-center justify-between">
+          <span className="flex items-center gap-2 text-sm font-bold">
+            <Sparkles size={16} className="text-[var(--color-primary)]" aria-hidden="true" />
+            {data.tierName} səviyyəsi
+          </span>
+          {data.nextTierName && (
+            <span className="text-xs text-[var(--color-subtle)]">
+              {data.pointsToNextTier} xal qalıb — {data.nextTierName}
+            </span>
+          )}
+        </div>
+        <div className="h-2.5 overflow-hidden rounded-full bg-[var(--color-muted)]">
+          <div
+            className="h-full rounded-full bg-[var(--color-primary)] transition-[width] duration-700 ease-[var(--ease-out-quint)]"
+            style={{ width: `${data.tierProgressPercent}%` }}
+          />
+        </div>
+        {!data.nextTierName && (
+          <p className="mt-2 text-xs font-medium text-[var(--color-success)]">Ən yüksək səviyyədəsiniz</p>
+        )}
       </div>
 
       <div className="card p-6">

@@ -109,6 +109,25 @@ public class MailTemplates {
                 """.formatted(escape(productName), button("Məhsula bax", productLink)));
     }
 
+    public String priceDrop(String productName, String productLink) {
+        return wrap("Qiymət düşdü", """
+                <p>İzlədiyiniz <strong>%s</strong> məhsuluna endirim tətbiq olundu!</p>
+                <p>Kampaniya bitməzdən əvvəl sifariş edin.</p>
+                %s
+                """.formatted(escape(productName), button("Məhsula bax", productLink)));
+    }
+
+    public String referralReward(String name, String promoCode, BigDecimal amount, String siteUrl) {
+        return wrap("Dəvət mükafatınız hazırdır", """
+                <p>Salam, %s.</p>
+                <p>Dəvət proqramı sayəsində <strong>%s ₼</strong> dəyərində promo kodunuz var:</p>
+                <p style="font-size:20px;font-weight:700;letter-spacing:1px;">%s</p>
+                <p>Bu kodu səbətdə promo kod sahəsinə daxil edərək istifadə edə bilərsiniz.</p>
+                %s
+                """.formatted(escape(name), amount.toPlainString(), escape(promoCode),
+                button("Kataloqa bax", siteUrl + "/kataloq")));
+    }
+
     // -----------------------------------------------------------------------
 
     private String wrap(String heading, String body) {

@@ -4,6 +4,7 @@ import clsx from 'clsx';
 import { ProductCard, ProductCardSkeleton } from '@/components/catalog/ProductCard';
 import { CountdownTimer } from '@/components/catalog/CountdownTimer';
 import { ScrollRail } from '@/components/ui/ScrollRail';
+import { RevealGroup } from '@/components/ui/Reveal';
 import { isInverted, SectionButton, SectionShell } from './SectionShell';
 import { getData, getPage } from '@/lib/api';
 import { formatNumber } from '@/lib/format';
@@ -45,73 +46,43 @@ export function FeaturedCategoriesSection({ section }: SectionProps) {
             <div key={index} className="skeleton h-32 rounded-[var(--radius-card)]" />
           ))}
         </div>
-      ) : (
-        <div
-          className={clsx(
-            section.variant === 'CAROUSEL'
-              ? 'scroll-rail'
-              : section.variant === 'COMPACT'
-                ? 'flex flex-wrap gap-3'
-                : // flex-wrap + justify-center rather than a fixed grid: a category count
-                  // that isn't a multiple of the column count (4 categories on 6 columns,
-                  // say) would otherwise strand the last row flush-start with visible
-                  // empty tracks beside it instead of centering what's actually there.
-                  'flex flex-wrap justify-center gap-4',
-          )}
-        >
-          {query.data!.map((category) =>
-            section.variant === 'COMPACT' ? (
-              <Link
-                key={category.id}
-                to={`/kataloq/${category.slug}`}
-                className="rounded-[var(--radius-button)] border border-[var(--color-border)] px-4 py-2 text-sm font-medium transition-colors hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
-              >
-                {category.name}
-                {showCount && (
-                  <span className="ms-1.5 text-xs text-[var(--color-subtle)] tabular">
-                    {category.productCount}
-                  </span>
-                )}
-              </Link>
-            ) : (
-              <Link
-                key={category.id}
-                to={`/kataloq/${category.slug}`}
-                className={clsx(
-                  'card card-elevated group flex flex-col items-center gap-3 p-5 text-center',
-                  section.variant === 'CAROUSEL'
-                    ? 'w-40 shrink-0'
-                    : 'w-[calc(50%-0.5rem)] sm:w-[calc(33.333%-0.667rem)] lg:w-[calc(16.667%-0.833rem)]',
-                )}
-              >
-                <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-[var(--color-muted)]">
-                  {category.imageUrl ? (
-                    <img
-                      src={category.imageUrl}
-                      alt=""
-                      loading="lazy"
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-lg font-bold text-[var(--color-primary)]">
-                      {category.name.charAt(0)}
-                    </span>
-                  )}
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold leading-tight transition-colors group-hover:text-[var(--color-primary)]">
-                    {category.name}
-                  </h3>
-                  {showCount && (
-                    <p className="mt-1 text-xs text-[var(--color-subtle)] tabular">
-                      {formatNumber(category.productCount)} məhsul
-                    </p>
-                  )}
-                </div>
-              </Link>
-            ),
-          )}
+      ) : section.variant === 'CAROUSEL' ? (
+        <div className="scroll-rail">
+          {query.data!.map((category) => (
+            <CategoryTile key={category.id} category={category} showCount={showCount} carousel />
+          ))}
         </div>
+      ) : section.variant === 'COMPACT' ? (
+        <div className="flex flex-wrap gap-3">
+          {query.data!.map((category) => (
+            <Link
+              key={category.id}
+              to={`/kataloq/${category.slug}`}
+              className="rounded-[var(--radius-button)] border border-[var(--color-border)] px-4 py-2 text-sm font-medium transition-colors hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+            >
+              {category.name}
+              {showCount && (
+                <span className="ms-1.5 text-xs text-[var(--color-subtle)] tabular">
+                  {category.productCount}
+                </span>
+              )}
+            </Link>
+          ))}
+        </div>
+      ) : (
+        // flex-wrap + justify-center rather than a fixed grid: a category count
+        // that isn't a multiple of the column count (4 categories on 6 columns,
+        // say) would otherwise strand the last row flush-start with visible
+        // empty tracks beside it instead of centering what's actually there.
+        <RevealGroup
+          className="flex flex-wrap justify-center gap-4"
+          itemClassName="w-[calc(50%-0.5rem)] sm:w-[calc(33.333%-0.667rem)] lg:w-[calc(16.667%-0.833rem)]"
+          staggerDelay={0.05}
+        >
+          {query.data!.map((category) => (
+            <CategoryTile key={category.id} category={category} showCount={showCount} />
+          ))}
+        </RevealGroup>
       )}
 
       {section.buttonText && (
@@ -120,6 +91,47 @@ export function FeaturedCategoriesSection({ section }: SectionProps) {
         </div>
       )}
     </SectionShell>
+  );
+}
+
+function CategoryTile({
+  category,
+  showCount,
+  carousel,
+}: {
+  category: CategoryCard;
+  showCount: boolean;
+  carousel?: boolean;
+}) {
+  return (
+    <Link
+      to={`/kataloq/${category.slug}`}
+      className={clsx(
+        'card card-elevated group flex flex-col items-center gap-3 p-5 text-center transition-transform duration-300',
+        'hover:-translate-y-1',
+        carousel && 'w-40 shrink-0',
+      )}
+    >
+      <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-[var(--color-muted)] transition-transform duration-300 group-hover:scale-110">
+        {category.imageUrl ? (
+          <img src={category.imageUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
+        ) : (
+          <span className="text-lg font-bold text-[var(--color-primary)]">
+            {category.name.charAt(0)}
+          </span>
+        )}
+      </div>
+      <div>
+        <h3 className="text-sm font-semibold leading-tight transition-colors group-hover:text-[var(--color-primary)]">
+          {category.name}
+        </h3>
+        {showCount && (
+          <p className="mt-1 text-xs text-[var(--color-subtle)] tabular">
+            {formatNumber(category.productCount)} məhsul
+          </p>
+        )}
+      </div>
+    </Link>
   );
 }
 
@@ -315,7 +327,12 @@ function ProductRail({
           // 4-column grid, for instance) — flex-wrap + justify-center collapses that gap
           // by centering whatever lands in the trailing partial row instead of stranding
           // it flush-start with three empty slots beside it.
-          <div className="flex flex-wrap justify-center gap-4">{items}</div>
+          //
+          // `.stagger-fade` (plain CSS, not framer-motion) on purpose: each item below
+          // already carries a percentage `width` meant to resolve against this flex
+          // container, and a framer-motion wrapper div per item would insert an
+          // intermediate auto-width box that percentage would resolve against instead.
+          <div className="stagger-fade flex flex-wrap justify-center gap-4">{items}</div>
         );
       })()}
     </SectionShell>

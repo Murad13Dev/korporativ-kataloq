@@ -6,6 +6,7 @@ import {
   ArrowRight,
   Info,
   Package,
+  Radio,
   ShoppingBag,
   Tag,
   TrendingUp,
@@ -52,11 +53,25 @@ const ORDER_STATUS_TONE: Record<string, BadgeTone> = {
   EXPIRED: 'neutral',
 };
 
+interface LiveVisitors {
+  totalViewers: number;
+  topProducts: { id: number; name: string; slug: string; viewers: number }[];
+}
+
 export function DashboardPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'dashboard'],
     queryFn: () => getData<Summary>('/admin/dashboard/summary'),
     staleTime: 60 * 1000,
+  });
+
+  // A short poll interval, not a WebSocket subscription: this tile is a nice-to-have
+  // glance, not something worth holding an extra live connection open for.
+  const live = useQuery({
+    queryKey: ['admin', 'dashboard', 'live-visitors'],
+    queryFn: () => getData<LiveVisitors>('/admin/dashboard/live-visitors'),
+    staleTime: 8 * 1000,
+    refetchInterval: 10 * 1000,
   });
 
   if (isLoading || !data) {
@@ -185,6 +200,38 @@ export function DashboardPage() {
 
         {/* ---------------- side column ---------------- */}
         <div className="space-y-6">
+          {live.data && live.data.totalViewers > 0 && (
+            <Card
+              title="Canlı ziyarətçilər"
+              actions={
+                <span className="pulse-dot inline-block h-2 w-2 rounded-full bg-[var(--color-success)] text-[var(--color-success)]" />
+              }
+            >
+              <div className="mb-3 flex items-baseline gap-2">
+                <Radio size={18} className="text-[var(--color-success)]" aria-hidden="true" />
+                <span className="font-display text-2xl font-bold tabular text-[var(--color-heading)]">
+                  {live.data.totalViewers}
+                </span>
+                <span className="text-sm text-[var(--color-subtle)]">məhsul səhifəsində</span>
+              </div>
+              <ul className="space-y-2">
+                {live.data.topProducts.map((product) => (
+                  <li key={product.id}>
+                    <Link
+                      to={`/admin/products?search=${encodeURIComponent(product.name)}`}
+                      className="flex items-center justify-between gap-3 rounded-[var(--radius-button)] px-2 py-1.5 text-sm transition-colors hover:bg-[var(--color-muted)]"
+                    >
+                      <span className="truncate text-[var(--color-body)]">{product.name}</span>
+                      <span className="shrink-0 font-semibold tabular text-[var(--color-heading)]">
+                        {product.viewers}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+
           <Card title="Anbar xəbərdarlığı" bodyClassName="p-0">
             {data.lowStockProducts.length === 0 ? (
               <p className="px-5 py-10 text-center text-sm text-[var(--color-subtle)]">

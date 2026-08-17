@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, deleteRequest, getData, postData, putData } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
-import type { Cart, CartNotice } from '@/types/api';
+import type { BulkAddResponse, Cart, CartNotice } from '@/types/api';
 
 const CART_KEY = ['cart'] as const;
 
@@ -111,6 +111,45 @@ export function useRemovePromoCode() {
   return useCartMutation<void>(
     () => deleteRequest('/public/cart/promo-code').then(() => getData<Cart>('/public/cart')),
     { successMessage: 'Promo kod ləğv edildi' },
+  );
+}
+
+/**
+ * Shared by "reorder a past order" and "B2B bulk CSV import" — both return a cart plus a
+ * report of what didn't make it in, rather than the plain `Cart` the single-item mutations
+ * above return, so they can't reuse {@link useCartMutation} directly.
+ */
+function useBulkCartMutation<TVariables>(mutationFn: (variables: TVariables) => Promise<BulkAddResponse>) {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+
+  return useMutation({
+    mutationFn,
+    onSuccess: (result) => {
+      queryClient.setQueryData(CART_KEY, result.cart);
+      if (result.addedCount > 0) {
+        toast.success(`${result.addedCount} məhsul səbətə əlavə edildi`);
+      }
+      // One toast per skip would flood the screen on a large CSV — a single combined
+      // warning names the count and the first couple of reasons is enough to act on.
+      if (result.skipped.length > 0) {
+        const preview = result.skipped.slice(0, 2).join(' · ');
+        toast.warning(
+          `${result.skipped.length} sətir əlavə edilmədi: ${preview}${result.skipped.length > 2 ? '…' : ''}`,
+        );
+      }
+    },
+    onError: (error: ApiError) => toast.error(error.message),
+  });
+}
+
+export function useReorder() {
+  return useBulkCartMutation<number>((orderId) => postData<BulkAddResponse>(`/customer/orders/${orderId}/reorder`));
+}
+
+export function useBulkImport() {
+  return useBulkCartMutation<{ sku: string; quantity: number }[]>((lines) =>
+    postData<BulkAddResponse>('/public/cart/bulk-import', { lines }),
   );
 }
 

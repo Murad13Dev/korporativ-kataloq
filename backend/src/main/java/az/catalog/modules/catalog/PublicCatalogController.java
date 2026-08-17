@@ -8,6 +8,8 @@ import az.catalog.modules.catalog.category.CategoryService;
 import az.catalog.modules.catalog.product.ProductBundleService;
 import az.catalog.modules.catalog.product.ProductDtos;
 import az.catalog.modules.catalog.product.ProductFilter;
+import az.catalog.modules.catalog.product.PriceWatchService;
+import az.catalog.modules.catalog.product.ProductPresenceService;
 import az.catalog.modules.catalog.product.ProductService;
 import az.catalog.common.domain.ContentStatus;
 import io.swagger.v3.oas.annotations.Operation;
@@ -24,6 +26,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -41,6 +44,8 @@ public class PublicCatalogController {
     private final ProductService productService;
     private final ProductBundleService bundleService;
     private final CategoryService categoryService;
+    private final ProductPresenceService presenceService;
+    private final PriceWatchService priceWatchService;
 
     // --- categories ---------------------------------------------------------
 
@@ -196,5 +201,26 @@ public class PublicCatalogController {
             @RequestLanguage String language,
             @RequestParam(defaultValue = "4") int limit) {
         return DataResponse.of(productService.alsoBought(slug, language, Math.min(limit, 24)));
+    }
+
+    @Operation(summary = "Qiymət düşdükdə xəbər ver",
+            description = "Bu məhsula istənilən kampaniya tətbiq olunanda bu e-poçta bir dəfə bildiriş göndərilir.")
+    @PostMapping("/products/{slug}/price-watch")
+    public ResponseEntity<Void> priceWatch(
+            @PathVariable String slug, @Valid @RequestBody ProductDtos.StockNotificationRequest request) {
+        priceWatchService.subscribe(slug, request.email());
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Canlı baxış siqnalı",
+            description = """
+                    Məhsul səhifəsi açıq olduqca dövri çağırılır. Cavabda dərhal cari sayı qaytarır;
+                    sonrakı dəyişikliklər `/topic/product/presence/{id}` STOMP kanalından gəlir.
+                    """)
+    @PostMapping("/products/{id}/presence")
+    public DataResponse<Integer> presence(
+            @PathVariable Long id,
+            @RequestHeader("X-Visitor-Token") String visitorToken) {
+        return DataResponse.of(presenceService.heartbeat(id, visitorToken));
     }
 }

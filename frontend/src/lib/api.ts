@@ -140,9 +140,9 @@ function createClient(): AxiosInstance {
       config.headers.set('X-Cart-Session', getCartSessionId());
     }
 
-    // The chat endpoints require this to identify the visitor's thread — without it
-    // every start/send/read call is rejected outright with a missing-header 400.
-    if (url.includes('/chat')) {
+    // The chat and product-presence endpoints require this to identify the visitor —
+    // without it those calls are rejected outright with a missing-header 400.
+    if (url.includes('/chat') || url.includes('/presence')) {
       config.headers.set('X-Visitor-Token', getVisitorToken());
     }
 

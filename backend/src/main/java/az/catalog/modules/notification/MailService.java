@@ -87,6 +87,16 @@ public class MailService {
         send(to, productName + " yenidən stokdadır", templates.backInStock(productName, productLink));
     }
 
+    @Async
+    public void sendPriceDrop(String to, String productName, String productLink) {
+        send(to, productName + " endirimdədir", templates.priceDrop(productName, productLink));
+    }
+
+    @Async
+    public void sendReferralReward(String to, String name, String promoCode, BigDecimal amount) {
+        send(to, "Dəvət mükafatınız hazırdır", templates.referralReward(name, promoCode, amount, properties.getPublicUrl()));
+    }
+
     private void send(String to, String subject, String htmlBody) {
         if (to == null || to.isBlank()) {
             return;

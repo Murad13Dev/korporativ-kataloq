@@ -18,6 +18,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.security.SecureRandom;
 import java.time.OffsetDateTime;
+import java.util.List;
 
 /**
  * Spend-to-earn points, redeemable for a one-time promo code.
@@ -40,14 +41,47 @@ public class LoyaltyService {
 
     private static final SecureRandom RANDOM = new SecureRandom();
 
+    /**
+     * Static tier ladder rather than an admin-configurable table: thresholds like these
+     * are a rare, deliberate business decision, not day-to-day content — the same reason
+     * {@code POINTS_PER_BLOCK} above isn't configurable either. Ordered ascending; the
+     * first entry must stay at 0 so every customer starts inside a named tier.
+     */
+    static final List<LoyaltyDtos.Tier> TIERS = List.of(
+            new LoyaltyDtos.Tier("Bronze", 0),
+            new LoyaltyDtos.Tier("Silver", 500),
+            new LoyaltyDtos.Tier("Gold", 2000),
+            new LoyaltyDtos.Tier("Platinum", 5000));
+
     private final LoyaltyTransactionRepository repository;
     private final CustomerRepository customerRepository;
     private final PromoCodeRepository promoCodeRepository;
 
     @Transactional(readOnly = true)
     public LoyaltyDtos.BalanceDto balance(Long customerId) {
+        int points = repository.balanceOf(customerId);
+        int lifetimeEarned = repository.lifetimeEarned(customerId);
+
+        LoyaltyDtos.Tier current = TIERS.get(0);
+        LoyaltyDtos.Tier next = null;
+        for (LoyaltyDtos.Tier tier : TIERS) {
+            if (lifetimeEarned >= tier.threshold()) {
+                current = tier;
+            } else {
+                next = tier;
+                break;
+            }
+        }
+
+        Integer pointsToNext = next == null ? null : next.threshold() - lifetimeEarned;
+        int progressPercent = next == null
+                ? 100
+                : (int) Math.round(100.0 * (lifetimeEarned - current.threshold())
+                        / (next.threshold() - current.threshold()));
+
         return new LoyaltyDtos.BalanceDto(
-                repository.balanceOf(customerId), POINTS_PER_BLOCK, POINTS_PER_BLOCK, VALUE_PER_BLOCK);
+                points, POINTS_PER_BLOCK, POINTS_PER_BLOCK, VALUE_PER_BLOCK,
+                current.name(), next == null ? null : next.name(), pointsToNext, progressPercent);
     }
 
     @Transactional(readOnly = true)

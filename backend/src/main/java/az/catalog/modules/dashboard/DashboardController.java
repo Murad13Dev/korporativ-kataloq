@@ -26,4 +26,11 @@ public class DashboardController {
     public DataResponse<DashboardDtos.Summary> summary(@RequestLanguage String language) {
         return DataResponse.of(service.summary(language));
     }
+
+    @Operation(summary = "Canlı ziyarətçilər",
+            description = "Hazırda məhsul səhifələrində olan ziyarətçilər — yaddaşdan, saxlanılmır.")
+    @GetMapping("/live-visitors")
+    public DataResponse<DashboardDtos.LiveVisitorsSnapshot> liveVisitors(@RequestLanguage String language) {
+        return DataResponse.of(service.liveVisitors(language));
+    }
 }

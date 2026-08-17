@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   Award,
   Box,
@@ -16,6 +17,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { isInverted, SectionButton, SectionShell } from './SectionShell';
+import { RevealGroup } from '@/components/ui/Reveal';
+import { AnimatedCounter } from '@/components/ui/AnimatedCounter';
 import { getData } from '@/lib/api';
 import { configNumber, configString, type SectionProps } from './types';
 
@@ -103,21 +106,29 @@ export function BenefitsSection({ section }: SectionProps) {
     );
   }
 
+  const gridClassName = clsx(
+    isList ? 'space-y-5' : 'grid gap-5',
+    !isList && columns >= 4 && 'grid-cols-2 lg:grid-cols-4',
+    !isList && columns === 3 && 'grid-cols-1 sm:grid-cols-3',
+    !isList && columns <= 2 && 'grid-cols-1 sm:grid-cols-2',
+  );
+
+  if (query.isLoading) {
+    return (
+      <SectionShell section={section}>
+        <div className={gridClassName}>
+          {Array.from({ length: columns }).map((_, index) => (
+            <div key={index} className="skeleton h-28 rounded-[var(--radius-card)]" />
+          ))}
+        </div>
+      </SectionShell>
+    );
+  }
+
   return (
     <SectionShell section={section}>
-      <div
-        className={clsx(
-          isList ? 'space-y-5' : 'grid gap-5',
-          !isList && columns >= 4 && 'grid-cols-2 lg:grid-cols-4',
-          !isList && columns === 3 && 'grid-cols-1 sm:grid-cols-3',
-          !isList && columns <= 2 && 'grid-cols-1 sm:grid-cols-2',
-        )}
-      >
-        {query.isLoading
-          ? Array.from({ length: columns }).map((_, index) => (
-              <div key={index} className="skeleton h-28 rounded-[var(--radius-card)]" />
-            ))
-          : query.data!.map((benefit) => {
+      <RevealGroup className={gridClassName} staggerDelay={0.06}>
+        {query.data!.map((benefit) => {
               const Icon = iconFor(benefit.icon);
               return (
                 <div
@@ -173,7 +184,7 @@ export function BenefitsSection({ section }: SectionProps) {
                 </div>
               );
             })}
-      </div>
+      </RevealGroup>
     </SectionShell>
   );
 }
@@ -203,66 +214,74 @@ export function StatisticsSection({ section }: SectionProps) {
     return null;
   }
 
+  if (query.isLoading) {
+    return (
+      <SectionShell section={section}>
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-6">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="skeleton h-32 rounded-[var(--radius-card)]" />
+          ))}
+        </div>
+      </SectionShell>
+    );
+  }
+
   return (
     <SectionShell section={section}>
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-6">
-        {query.isLoading
-          ? Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className="skeleton h-32 rounded-[var(--radius-card)]" />
-            ))
-          : query.data!.map((statistic) => {
-              const Icon = iconFor(statistic.icon);
-              return (
-                <div
-                  key={statistic.id}
-                  className={clsx(
-                    'group relative overflow-hidden rounded-[var(--radius-card)] p-5 text-center transition-all duration-300 lg:p-6',
-                    inverted
-                      ? 'border border-white/12 bg-white/6 hover:border-white/25 hover:bg-white/10'
-                      : 'card card-elevated',
-                  )}
-                >
-                  <span
-                    className={clsx(
-                      'mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full transition-colors duration-300',
-                      inverted
-                        ? 'bg-white/12 text-white group-hover:bg-[var(--color-primary)] group-hover:text-white'
-                        : 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]',
-                    )}
-                  >
-                    <Icon size={20} aria-hidden="true" />
+      <RevealGroup className="grid grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-6" staggerDelay={0.08}>
+        {query.data!.map((statistic) => {
+          const Icon = iconFor(statistic.icon);
+          return (
+            <div
+              key={statistic.id}
+              className={clsx(
+                'group relative overflow-hidden rounded-[var(--radius-card)] p-5 text-center transition-all duration-300 hover:-translate-y-1 lg:p-6',
+                inverted
+                  ? 'border border-white/12 bg-white/6 hover:border-white/25 hover:bg-white/10'
+                  : 'card card-elevated',
+              )}
+            >
+              <span
+                className={clsx(
+                  'mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full transition-colors duration-300',
+                  inverted
+                    ? 'bg-white/12 text-white group-hover:bg-[var(--color-primary)] group-hover:text-white'
+                    : 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]',
+                )}
+              >
+                <Icon size={20} aria-hidden="true" />
+              </span>
+              <p
+                className={clsx(
+                  'font-display text-3xl font-bold tabular lg:text-4xl',
+                  inverted ? 'text-white' : 'text-[var(--color-heading)]',
+                )}
+              >
+                <AnimatedCounter value={statistic.value} />
+                {statistic.suffix && (
+                  <span className={inverted ? 'text-white/70' : 'text-[var(--color-primary)]'}>
+                    {statistic.suffix}
                   </span>
-                  <p
-                    className={clsx(
-                      'font-display text-3xl font-bold tabular lg:text-4xl',
-                      inverted ? 'text-white' : 'text-[var(--color-heading)]',
-                    )}
-                  >
-                    {statistic.value}
-                    {statistic.suffix && (
-                      <span className={inverted ? 'text-white/70' : 'text-[var(--color-primary)]'}>
-                        {statistic.suffix}
-                      </span>
-                    )}
-                  </p>
-                  <span
-                    className={clsx(
-                      'mx-auto mt-2 block h-px w-8 rounded-full',
-                      inverted ? 'bg-white/20' : 'bg-[var(--color-primary)]/25',
-                    )}
-                  />
-                  <p
-                    className={clsx(
-                      'mt-2 text-sm',
-                      inverted ? 'text-white/70' : 'text-[var(--color-body)]',
-                    )}
-                  >
-                    {statistic.label}
-                  </p>
-                </div>
-              );
-            })}
-      </div>
+                )}
+              </p>
+              <span
+                className={clsx(
+                  'mx-auto mt-2 block h-px w-8 rounded-full',
+                  inverted ? 'bg-white/20' : 'bg-[var(--color-primary)]/25',
+                )}
+              />
+              <p
+                className={clsx(
+                  'mt-2 text-sm',
+                  inverted ? 'text-white/70' : 'text-[var(--color-body)]',
+                )}
+              >
+                {statistic.label}
+              </p>
+            </div>
+          );
+        })}
+      </RevealGroup>
     </SectionShell>
   );
 }
@@ -286,6 +305,8 @@ export function TestimonialsSection({ section }: SectionProps) {
   const inverted = isInverted(section.backgroundStyle);
   const limit = configNumber(section, 'limit', 6, 24);
   const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const reduceMotion = useReducedMotion();
 
   const query = useQuery({
     queryKey: ['sections', 'testimonials', limit],
@@ -293,12 +314,25 @@ export function TestimonialsSection({ section }: SectionProps) {
     staleTime: 15 * 60 * 1000,
   });
 
-  if (!query.isLoading && (!query.data || query.data.length === 0)) {
+  const testimonials = query.data ?? [];
+  const isSlider = section.variant === 'SLIDER' || section.variant === 'SINGLE';
+
+  // Auto-advance the slider — paused on hover/focus so nobody loses their place
+  // mid-read, and skipped entirely for reduced-motion or a single testimonial.
+  useEffect(() => {
+    if (!isSlider || reduceMotion || paused || testimonials.length < 2) {
+      return;
+    }
+    const timer = window.setInterval(() => {
+      setIndex((current) => (current + 1) % testimonials.length);
+    }, 6000);
+    return () => window.clearInterval(timer);
+  }, [isSlider, reduceMotion, paused, testimonials.length]);
+
+  if (!query.isLoading && testimonials.length === 0) {
     return null;
   }
 
-  const testimonials = query.data ?? [];
-  const isSlider = section.variant === 'SLIDER' || section.variant === 'SINGLE';
   const current = testimonials[index % Math.max(testimonials.length, 1)];
 
   return (
@@ -306,8 +340,24 @@ export function TestimonialsSection({ section }: SectionProps) {
       {query.isLoading ? (
         <div className="skeleton h-40 rounded-[var(--radius-card)]" />
       ) : isSlider && current ? (
-        <div className="mx-auto max-w-3xl">
-          <TestimonialCard testimonial={current} inverted={inverted} large />
+        <div
+          className="mx-auto max-w-3xl"
+          onMouseEnter={() => setPaused(true)}
+          onMouseLeave={() => setPaused(false)}
+          onFocus={() => setPaused(true)}
+          onBlur={() => setPaused(false)}
+        >
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={current.id}
+              initial={reduceMotion ? undefined : { opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduceMotion ? undefined : { opacity: 0, y: -12 }}
+              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <TestimonialCard testimonial={current} inverted={inverted} large />
+            </motion.div>
+          </AnimatePresence>
 
           {testimonials.length > 1 && (
             <div className="mt-6 flex justify-center gap-2" role="tablist" aria-label="Rəylər">
@@ -335,7 +385,7 @@ export function TestimonialsSection({ section }: SectionProps) {
           )}
         </div>
       ) : (
-        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+        <RevealGroup className="grid gap-5 md:grid-cols-2 lg:grid-cols-3" staggerDelay={0.06}>
           {testimonials.map((testimonial) => (
             <TestimonialCard
               key={testimonial.id}
@@ -343,7 +393,7 @@ export function TestimonialsSection({ section }: SectionProps) {
               inverted={inverted}
             />
           ))}
-        </div>
+        </RevealGroup>
       )}
     </SectionShell>
   );
@@ -464,60 +514,78 @@ export function PartnersSection({ section }: SectionProps) {
     staleTime: 30 * 60 * 1000,
   });
 
-  if (!query.isLoading && (!query.data || query.data.length === 0)) {
+  const partners = query.data ?? [];
+
+  if (!query.isLoading && partners.length === 0) {
     return null;
   }
 
-  return (
-    <SectionShell section={section}>
-      <div
+  const renderLogo = (partner: Partner) => {
+    const logo = partner.logoUrl ? (
+      <img
+        src={partner.logoUrl}
+        alt={partner.name}
+        loading="lazy"
+        /* Greyscale until hover keeps a wall of mismatched logos calm. */
         className={clsx(
-          section.variant === 'GRID'
-            ? 'grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-6'
-            : 'flex flex-wrap items-center justify-center gap-x-10 gap-y-6',
+          'h-9 w-auto max-w-[140px] object-contain transition-all',
+          'opacity-60 grayscale hover:opacity-100 hover:grayscale-0',
+          inverted && 'brightness-0 invert',
+        )}
+      />
+    ) : (
+      <span
+        className={clsx(
+          'text-base font-semibold',
+          inverted ? 'text-white/60' : 'text-[var(--color-subtle)]',
         )}
       >
-        {(query.data ?? []).map((partner) => {
-          const logo = partner.logoUrl ? (
-            <img
-              src={partner.logoUrl}
-              alt={partner.name}
-              loading="lazy"
-              /* Greyscale until hover keeps a wall of mismatched logos calm. */
-              className={clsx(
-                'h-9 w-auto max-w-[140px] object-contain transition-all',
-                'opacity-60 grayscale hover:opacity-100 hover:grayscale-0',
-                inverted && 'brightness-0 invert',
-              )}
-            />
-          ) : (
-            <span
-              className={clsx(
-                'text-base font-semibold',
-                inverted ? 'text-white/60' : 'text-[var(--color-subtle)]',
-              )}
-            >
-              {partner.name}
-            </span>
-          );
+        {partner.name}
+      </span>
+    );
 
-          return partner.websiteUrl ? (
-            <a
-              key={partner.id}
-              href={partner.websiteUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center"
-            >
-              {logo}
-            </a>
-          ) : (
-            <span key={partner.id} className="flex items-center justify-center">
-              {logo}
-            </span>
-          );
-        })}
-      </div>
+    return partner.websiteUrl ? (
+      <a
+        href={partner.websiteUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex shrink-0 items-center justify-center"
+      >
+        {logo}
+      </a>
+    ) : (
+      <span className="flex shrink-0 items-center justify-center">{logo}</span>
+    );
+  };
+
+  const isGrid = section.variant === 'GRID';
+  // A short list loops too abruptly to read as a marquee — those stay a calm, static row.
+  const canMarquee = !isGrid && partners.length >= 6;
+
+  return (
+    <SectionShell section={section}>
+      {isGrid ? (
+        <RevealGroup className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-6" staggerDelay={0.05}>
+          {partners.map((partner) => (
+            <div key={partner.id}>{renderLogo(partner)}</div>
+          ))}
+        </RevealGroup>
+      ) : canMarquee ? (
+        <div className="marquee-viewport">
+          <div className="marquee-track">
+            {/* Duplicated once so the track can scroll exactly -50% and loop seamlessly. */}
+            {[...partners, ...partners].map((partner, index) => (
+              <div key={`${partner.id}-${index}`}>{renderLogo(partner)}</div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-6">
+          {partners.map((partner) => (
+            <div key={partner.id}>{renderLogo(partner)}</div>
+          ))}
+        </div>
+      )}
     </SectionShell>
   );
 }
@@ -598,17 +666,28 @@ export function FaqSection({ section }: SectionProps) {
                 </button>
               </h3>
 
-              {isOpen && (
-                <div
-                  id={`faq-${faq.id}`}
-                  className={clsx(
-                    'px-5 pb-4 text-sm leading-relaxed',
-                    inverted ? 'text-white/80' : 'text-[var(--color-body)]',
-                  )}
-                >
-                  {faq.answer}
-                </div>
-              )}
+              <AnimatePresence initial={false}>
+                {isOpen && (
+                  <motion.div
+                    key="content"
+                    id={`faq-${faq.id}`}
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                    className="overflow-hidden"
+                  >
+                    <div
+                      className={clsx(
+                        'px-5 pb-4 text-sm leading-relaxed',
+                        inverted ? 'text-white/80' : 'text-[var(--color-body)]',
+                      )}
+                    >
+                      {faq.answer}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           );
         })}

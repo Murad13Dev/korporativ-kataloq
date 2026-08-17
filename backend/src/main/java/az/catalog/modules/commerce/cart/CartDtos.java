@@ -117,4 +117,33 @@ public final class CartDtos {
 
     public record PromoCodeRequest(@NotBlank @Size(max = 48) String code) {
     }
+
+    // --- bulk operations (reorder, B2B CSV import) ---
+
+    /**
+     * One resolved line for {@code CartService#bulkAdd} — already carries a real product
+     * id, unlike the request DTOs above. Both callers (reorder, SKU import) resolve their
+     * own source (an order line, a SKU lookup) into this shape before handing it over, so
+     * the add-to-cart loop itself doesn't need to know which caller it came from.
+     *
+     * @param reference human-readable label for a skip message (product name or the SKU
+     *                  as typed, so a shopper can tell which row failed)
+     */
+    public record BulkLine(Long productId, Long variantId, int quantity, String reference) {
+    }
+
+    /**
+     * @param addedCount how many lines were actually added or merged into an existing line
+     * @param skipped    one message per line that couldn't be added — out of stock, unknown
+     *                   SKU, discontinued product — so a bulk action never fails silently
+     */
+    public record BulkAddResponse(CartResponse cart, int addedCount, List<String> skipped) {
+    }
+
+    /** One row of a B2B CSV/SKU-list import, before the SKU is resolved to a product. */
+    public record SkuLine(@NotBlank @Size(max = 80) String sku, @Min(1) int quantity) {
+    }
+
+    public record BulkImportRequest(@NotNull List<SkuLine> lines) {
+    }
 }

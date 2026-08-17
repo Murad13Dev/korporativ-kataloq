@@ -81,7 +81,10 @@ public final class ProductDtos {
             List<VariantDto> variants,
             List<VariantAttributeDto> variantAttributes,
             double averageRating,
-            long reviewCount
+            long reviewCount,
+            /** Distinct orders containing this product in the last 7 days — real order data,
+                not a curated "popular" flag. Zero renders no badge on the frontend. */
+            long recentBuyerCount
     ) {
     }
 

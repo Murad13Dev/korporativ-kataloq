@@ -2,13 +2,15 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { AlertCircle, FileText, Minus, Plus, ShoppingBag, Tag, Trash2, Truck, X } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { AlertCircle, FileSpreadsheet, FileText, Minus, Plus, ShoppingBag, Tag, Trash2, Truck, Upload, X } from 'lucide-react';
 import { InlinePrice } from '@/components/catalog/PriceDisplay';
 import { DiscountPill } from '@/components/catalog/DiscountRibbon';
 import { SectionLoader } from '@/components/ui/PageLoader';
 import { useToast } from '@/components/ui/Toast';
 import {
   useApplyPromoCode,
+  useBulkImport,
   useCart,
   useRemoveCartItem,
   useRemovePromoCode,
@@ -45,18 +47,23 @@ export default function CartPage() {
 
   if (!cart || cart.items.length === 0) {
     return (
-      <div className="container-site flex flex-col items-center py-24 text-center">
-        <ShoppingBag size={44} className="mb-5 text-[var(--color-subtle)]" aria-hidden="true" />
-        <h1 className="mb-2 text-2xl font-bold">Səbətiniz boşdur</h1>
-        <p className="mb-7 max-w-sm text-[var(--color-body)]">
-          Kataloqumuzu nəzərdən keçirin və bəyəndiyiniz məhsulları səbətə əlavə edin.
-        </p>
-        <Link
-          to="/kataloq"
-          className="rounded-[var(--radius-button)] bg-[var(--color-primary)] px-6 py-3 text-sm font-semibold text-[var(--color-primary-contrast)]"
-        >
-          Kataloqa bax
-        </Link>
+      <div className="container-site py-16">
+        <div className="flex flex-col items-center text-center">
+          <ShoppingBag size={44} className="mb-5 text-[var(--color-subtle)]" aria-hidden="true" />
+          <h1 className="mb-2 text-2xl font-bold">Səbətiniz boşdur</h1>
+          <p className="mb-7 max-w-sm text-[var(--color-body)]">
+            Kataloqumuzu nəzərdən keçirin və bəyəndiyiniz məhsulları səbətə əlavə edin.
+          </p>
+          <Link
+            to="/kataloq"
+            className="rounded-[var(--radius-button)] bg-[var(--color-primary)] px-6 py-3 text-sm font-semibold text-[var(--color-primary-contrast)]"
+          >
+            Kataloqa bax
+          </Link>
+        </div>
+        <div className="mx-auto mt-10 max-w-lg">
+          <BulkImportCard />
+        </div>
       </div>
     );
   }
@@ -81,11 +88,17 @@ export default function CartPage() {
       <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
         {/* ---------------- lines ---------------- */}
         <ul className="space-y-3">
-          {cart.items.map((line) => (
-            <li
-              key={line.id}
-              className={clsx('card flex gap-4 p-4', !line.available && 'opacity-60')}
-            >
+          <AnimatePresence initial={false}>
+            {cart.items.map((line) => (
+              <motion.li
+                key={line.id}
+                layout
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, x: -24, height: 0, marginBottom: 0, paddingTop: 0, paddingBottom: 0 }}
+                transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                className={clsx('card flex gap-4 overflow-hidden p-4', !line.available && 'opacity-60')}
+              >
               <Link
                 to={`/mehsul/${line.slug}`}
                 className="h-24 w-24 shrink-0 overflow-hidden rounded-[var(--radius-button)] bg-[var(--color-muted)]"
@@ -188,9 +201,12 @@ export default function CartPage() {
                   </div>
                 </div>
               </div>
-            </li>
-          ))}
+              </motion.li>
+            ))}
+          </AnimatePresence>
         </ul>
+
+        <BulkImportCard className="mt-3" />
 
         {/* ---------------- summary ---------------- */}
         <aside className="lg:sticky lg:top-[calc(var(--header-height)+1rem)] lg:self-start">
@@ -329,12 +345,14 @@ export default function CartPage() {
         </aside>
       </div>
 
-      {quoteModalOpen && (
-        <QuoteRequestModal
-          items={cart.items.map((line) => ({ productId: line.productId, quantity: line.quantity, name: line.name }))}
-          onClose={() => setQuoteModalOpen(false)}
-        />
-      )}
+      <AnimatePresence>
+        {quoteModalOpen && (
+          <QuoteRequestModal
+            items={cart.items.map((line) => ({ productId: line.productId, quantity: line.quantity, name: line.name }))}
+            onClose={() => setQuoteModalOpen(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -376,12 +394,20 @@ function QuoteRequestModal({
   });
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4"
       onClick={onClose}
       role="presentation"
     >
-      <div
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 12 }}
+        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
         className="w-full max-w-md rounded-[var(--radius-card)] bg-[var(--color-surface)] p-6 shadow-[var(--shadow-popover)]"
         onClick={(event) => event.stopPropagation()}
         role="dialog"
@@ -485,8 +511,8 @@ function QuoteRequestModal({
             </button>
           </form>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -510,6 +536,114 @@ function Row({
       >
         {value}
       </dd>
+    </div>
+  );
+}
+
+/**
+ * B2B bulk order: paste or upload a `SKU,say` list (CSV, one row per line — a comma,
+ * semicolon or tab between the two cells) and every resolvable row lands in the cart in
+ * one request. Parsing happens client-side so a shopper sees malformed rows stripped out
+ * before anything is sent; SKU-to-product resolution and stock/purchasability checks are
+ * the server's job (see `CartService#bulkImportBySku`).
+ */
+function BulkImportCard({ className }: { className?: string }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState('');
+  const bulkImport = useBulkImport();
+  const toast = useToast();
+
+  const parse = (raw: string): { sku: string; quantity: number }[] =>
+    raw
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => line.split(/[,;\t]/).map((cell) => cell.trim()))
+      .filter(([sku, qty]) => sku && qty && !Number.isNaN(Number(qty)) && sku.toLowerCase() !== 'sku')
+      .map(([sku, qty]) => ({ sku: sku!, quantity: Math.max(1, Math.floor(Number(qty))) }));
+
+  const submit = (raw: string) => {
+    const lines = parse(raw);
+    if (lines.length === 0) {
+      toast.error('Faylda "SKU,say" formatında sətir tapılmadı');
+      return;
+    }
+    bulkImport.mutate(lines, { onSuccess: () => setText('') });
+  };
+
+  const onFile = (file: File) => {
+    file.text().then(submit).catch(() => toast.error('Fayl oxuna bilmədi'));
+  };
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={clsx(
+          'flex w-full items-center justify-center gap-2 rounded-[var(--radius-card)] border border-dashed border-[var(--color-border)] px-4 py-3 text-sm font-medium text-[var(--color-subtle)] transition-colors hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]',
+          className,
+        )}
+      >
+        <FileSpreadsheet size={16} aria-hidden="true" />
+        Toplu sifariş — SKU siyahısı yüklə (CSV)
+      </button>
+    );
+  }
+
+  return (
+    <div className={clsx('card p-4', className)}>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-[var(--color-heading)]">
+          <FileSpreadsheet size={16} className="text-[var(--color-primary)]" aria-hidden="true" />
+          Toplu sifariş
+        </h2>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          aria-label="Bağla"
+          className="rounded p-1 text-[var(--color-subtle)] hover:bg-[var(--color-muted)]"
+        >
+          <X size={15} aria-hidden="true" />
+        </button>
+      </div>
+
+      <p className="mb-3 text-xs text-[var(--color-subtle)]">
+        Hər sətirdə bir sətir: <code className="rounded bg-[var(--color-muted)] px-1 py-0.5">SKU,say</code> — CSV
+        faylı yükləyin və ya birbaşa yapışdırın.
+      </p>
+
+      <label className="mb-2 flex cursor-pointer items-center justify-center gap-2 rounded-[var(--radius-button)] border border-[var(--color-border)] px-4 py-2.5 text-sm font-medium text-[var(--color-body)] transition-colors hover:bg-[var(--color-muted)]">
+        <Upload size={15} aria-hidden="true" />
+        CSV faylı seç
+        <input
+          type="file"
+          accept=".csv,text/csv,text/plain"
+          className="sr-only"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) onFile(file);
+            event.target.value = '';
+          }}
+        />
+      </label>
+
+      <textarea
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        rows={4}
+        placeholder={'CHR-001-BLK,2\nLMP-002,1'}
+        className="w-full resize-none rounded-[var(--radius-input)] border border-[var(--color-border)] bg-[var(--color-canvas)] px-3 py-2 font-mono text-xs outline-none focus:border-[var(--color-primary)]"
+      />
+
+      <button
+        type="button"
+        onClick={() => submit(text)}
+        disabled={bulkImport.isPending || !text.trim()}
+        className="mt-2 w-full rounded-[var(--radius-button)] bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-[var(--color-primary-contrast)] transition-colors hover:bg-[var(--color-primary-hover)] disabled:opacity-50"
+      >
+        {bulkImport.isPending ? 'Əlavə edilir…' : 'Səbətə əlavə et'}
+      </button>
     </div>
   );
 }

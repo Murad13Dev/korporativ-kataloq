@@ -230,4 +230,10 @@ public final class OrderDtos {
             @NotBlank @Email @Size(max = 190) String email
     ) {
     }
+
+    /** Campaign + promo + corporate savings across a customer's own order history — the
+        "Savings Wallet" widget. Both fields are real sums of what was actually charged
+        less what was actually saved, never an estimate. */
+    public record SavingsSummary(BigDecimal lifetimeSavings, BigDecimal yearSavings) {
+    }
 }

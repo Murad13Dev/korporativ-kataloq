@@ -1,7 +1,20 @@
 import clsx from 'clsx';
+import { motion, useReducedMotion } from 'framer-motion';
 import { isInverted, SectionButton, SectionShell } from './SectionShell';
 import { ScrollRail } from '@/components/ui/ScrollRail';
+import { Reveal, RevealGroup } from '@/components/ui/Reveal';
 import { configArray, configNumber, type SectionProps } from './types';
+
+/** Shared stagger choreography for hero copy: eyebrow, heading, subtitle, buttons, badges
+    each arrive a beat after the last, top to bottom — the reading order of the block. */
+const HERO_ITEM = {
+  hidden: { opacity: 0, y: 16 },
+  visible: (delay: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.55, delay, ease: [0.22, 1, 0.36, 1] },
+  }),
+};
 
 /**
  * Sections whose content comes entirely from the section row itself — no extra fetch.
@@ -16,33 +29,56 @@ export function HeroSection({ section }: SectionProps) {
   const isSplit = section.variant === 'SPLIT';
   const isCentered = section.variant === 'CENTERED';
   const badges = configArray<string>(section, 'badges');
+  const reduceMotion = useReducedMotion();
+  // ACCENT/DARK already get the shell's gradient-mesh; a light hero earns its own,
+  // much softer glow so the very first thing a visitor sees isn't a flat rectangle.
+  const ownsGlow = !inverted && section.backgroundStyle !== 'IMAGE';
 
   const copy = (
-    <div className={clsx(isCentered && 'mx-auto max-w-3xl text-center')}>
+    <motion.div
+      initial={reduceMotion ? undefined : 'hidden'}
+      animate={reduceMotion ? undefined : 'visible'}
+      className={clsx(isCentered && 'mx-auto max-w-3xl text-center')}
+    >
       {section.eyebrow && (
-        <span
+        <motion.span
+          custom={0}
+          variants={HERO_ITEM}
           className={clsx(
-            'mb-3 inline-block text-sm font-semibold uppercase tracking-wide',
-            inverted ? 'text-white/70' : 'text-[var(--color-primary)]',
+            'mb-3 inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm font-semibold',
+            inverted
+              ? 'bg-white/12 text-white/85'
+              : 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]',
           )}
         >
+          <span
+            className={clsx(
+              'h-1.5 w-1.5 rounded-full',
+              inverted ? 'bg-white' : 'bg-[var(--color-primary)]',
+            )}
+            aria-hidden="true"
+          />
           {section.eyebrow}
-        </span>
+        </motion.span>
       )}
 
       {section.title && (
-        <h1
+        <motion.h1
+          custom={0.08}
+          variants={HERO_ITEM}
           className={clsx(
-            'text-4xl font-bold leading-[1.08] tracking-tight lg:text-6xl',
+            'block text-4xl font-bold leading-[1.08] tracking-tight lg:text-6xl',
             inverted && 'text-white',
           )}
         >
           {section.title}
-        </h1>
+        </motion.h1>
       )}
 
       {section.subtitle && (
-        <p
+        <motion.p
+          custom={0.16}
+          variants={HERO_ITEM}
           className={clsx(
             'mt-5 max-w-xl text-lg leading-relaxed',
             isCentered && 'mx-auto',
@@ -50,21 +86,32 @@ export function HeroSection({ section }: SectionProps) {
           )}
         >
           {section.subtitle}
-        </p>
+        </motion.p>
       )}
 
-      <div className={clsx('mt-8 flex flex-wrap gap-3', isCentered && 'justify-center')}>
-        <SectionButton text={section.buttonText} url={section.buttonUrl} inverted={inverted} />
+      <motion.div
+        custom={0.24}
+        variants={HERO_ITEM}
+        className={clsx('mt-8 flex flex-wrap gap-3', isCentered && 'justify-center')}
+      >
+        <SectionButton
+          text={section.buttonText}
+          url={section.buttonUrl}
+          inverted={inverted}
+          className="btn-sheen"
+        />
         <SectionButton
           text={section.secondaryButtonText}
           url={section.secondaryButtonUrl}
           variant="secondary"
           inverted={inverted}
         />
-      </div>
+      </motion.div>
 
       {badges.length > 0 && (
-        <ul
+        <motion.ul
+          custom={0.32}
+          variants={HERO_ITEM}
           className={clsx(
             'mt-7 flex flex-wrap gap-x-5 gap-y-2 text-sm',
             isCentered && 'justify-center',
@@ -83,39 +130,56 @@ export function HeroSection({ section }: SectionProps) {
               {badge}
             </li>
           ))}
-        </ul>
+        </motion.ul>
       )}
-    </div>
+    </motion.div>
   );
 
   return (
     <SectionShell section={section} showHeader={false} compact={false}>
-      {isSplit && section.mediaUrl ? (
-        <div className="grid items-center gap-10 lg:grid-cols-2">
-          {copy}
-          {section.mediaIsVideo ? (
-            <video
-              src={section.mediaUrl}
-              autoPlay
-              muted
-              loop
-              playsInline
-              className="w-full rounded-[var(--radius-card)] object-cover shadow-[var(--shadow-card)]"
-            />
-          ) : (
-            <img
-              src={section.mediaUrl}
-              alt=""
-              /* The hero image is above the fold — never lazy. */
-              loading="eager"
-              fetchPriority="high"
-              className="w-full rounded-[var(--radius-card)] object-cover shadow-[var(--shadow-card)]"
-            />
-          )}
-        </div>
-      ) : (
-        copy
+      {ownsGlow && (
+        <div className="gradient-mesh opacity-60" aria-hidden="true" />
       )}
+      <div className={clsx(ownsGlow && 'relative')}>
+        {isSplit && section.mediaUrl ? (
+          <div className="grid items-center gap-10 lg:grid-cols-2">
+            {copy}
+            <motion.div
+              initial={reduceMotion ? undefined : { opacity: 0, scale: 0.96 }}
+              whileInView={reduceMotion ? undefined : { opacity: 1, scale: 1 }}
+              viewport={{ once: true, amount: 0.3 }}
+              transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+            >
+              {/* Float lives on its own inner element — a CSS animation and a
+                  framer-motion animation both targeting `transform` on the same node
+                  would fight over the property each frame. */}
+              <div className="animate-float">
+                {section.mediaIsVideo ? (
+                  <video
+                    src={section.mediaUrl}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    className="w-full rounded-[var(--radius-card)] object-cover shadow-[var(--shadow-card-hover)]"
+                  />
+                ) : (
+                  <img
+                    src={section.mediaUrl}
+                    alt=""
+                    /* The hero image is above the fold — never lazy. */
+                    loading="eager"
+                    fetchPriority="high"
+                    className="w-full rounded-[var(--radius-card)] object-cover shadow-[var(--shadow-card-hover)]"
+                  />
+                )}
+              </div>
+            </motion.div>
+          </div>
+        ) : (
+          copy
+        )}
+      </div>
     </SectionShell>
   );
 }
@@ -276,7 +340,7 @@ export function CtaBannerSection({ section }: SectionProps) {
 
   return (
     <SectionShell section={section} showHeader={false} compact={section.variant === 'COMPACT'}>
-      <div
+      <Reveal
         className={clsx(
           isSplit
             ? 'flex flex-wrap items-center justify-between gap-6'
@@ -307,7 +371,12 @@ export function CtaBannerSection({ section }: SectionProps) {
         </div>
 
         <div className={clsx('flex flex-wrap gap-3', !isSplit && 'mt-7 justify-center')}>
-          <SectionButton text={section.buttonText} url={section.buttonUrl} inverted={inverted} />
+          <SectionButton
+            text={section.buttonText}
+            url={section.buttonUrl}
+            inverted={inverted}
+            className="btn-sheen"
+          />
           <SectionButton
             text={section.secondaryButtonText}
             url={section.secondaryButtonUrl}
@@ -315,7 +384,7 @@ export function CtaBannerSection({ section }: SectionProps) {
             inverted={inverted}
           />
         </div>
-      </div>
+      </Reveal>
     </SectionShell>
   );
 }
@@ -355,15 +424,16 @@ export function GallerySection({ section }: SectionProps) {
       {section.variant === 'CAROUSEL' ? (
         <ScrollRail inverted={isInverted(section.backgroundStyle)}>{items}</ScrollRail>
       ) : (
-        <div
+        <RevealGroup
           className={clsx(
             section.variant === 'MASONRY'
               ? 'columns-2 gap-4 lg:columns-3 [&>*]:mb-4'
               : 'grid grid-cols-2 gap-4 lg:grid-cols-3',
           )}
+          staggerDelay={0.05}
         >
           {items}
-        </div>
+        </RevealGroup>
       )}
     </SectionShell>
   );
@@ -421,36 +491,38 @@ export function TimelineSection({ section }: SectionProps) {
               />
             )}
 
-            {entry.year && (
-              <span
-                className={clsx(
-                  'block font-display text-lg font-bold',
-                  inverted ? 'text-white' : 'text-[var(--color-primary)]',
-                )}
-              >
-                {entry.year}
-              </span>
-            )}
-            {entry.title && (
-              <h3
-                className={clsx(
-                  'mt-0.5 text-base font-semibold',
-                  inverted ? 'text-white' : 'text-[var(--color-heading)]',
-                )}
-              >
-                {entry.title}
-              </h3>
-            )}
-            {entry.description && (
-              <p
-                className={clsx(
-                  'mt-1 text-sm leading-relaxed',
-                  inverted ? 'text-white/75' : 'text-[var(--color-body)]',
-                )}
-              >
-                {entry.description}
-              </p>
-            )}
+            <Reveal direction={horizontal ? 'up' : 'right'} delay={Math.min(index, 8) * 0.06}>
+              {entry.year && (
+                <span
+                  className={clsx(
+                    'block font-display text-lg font-bold',
+                    inverted ? 'text-white' : 'text-[var(--color-primary)]',
+                  )}
+                >
+                  {entry.year}
+                </span>
+              )}
+              {entry.title && (
+                <h3
+                  className={clsx(
+                    'mt-0.5 text-base font-semibold',
+                    inverted ? 'text-white' : 'text-[var(--color-heading)]',
+                  )}
+                >
+                  {entry.title}
+                </h3>
+              )}
+              {entry.description && (
+                <p
+                  className={clsx(
+                    'mt-1 text-sm leading-relaxed',
+                    inverted ? 'text-white/75' : 'text-[var(--color-body)]',
+                  )}
+                >
+                  {entry.description}
+                </p>
+              )}
+            </Reveal>
           </li>
         ))}
       </ol>
@@ -479,14 +551,17 @@ export function TeamSection({ section }: SectionProps) {
   const isCarousel = section.variant === 'CAROUSEL';
 
   const items = members.map((member, index) => (
-    <article key={index} className={clsx('card overflow-hidden', isCarousel && 'w-64 shrink-0')}>
-      <div className="aspect-square bg-[var(--color-muted)]">
+    <article
+      key={index}
+      className={clsx('card card-elevated group overflow-hidden', isCarousel && 'w-64 shrink-0')}
+    >
+      <div className="aspect-square overflow-hidden bg-[var(--color-muted)]">
         {member.photoUrl && (
           <img
             src={member.photoUrl}
             alt={member.name ?? ''}
             loading="lazy"
-            className="h-full w-full object-cover"
+            className="h-full w-full object-cover transition-transform duration-500 ease-[var(--ease-out-quint)] group-hover:scale-105"
           />
         )}
       </div>
@@ -507,7 +582,9 @@ export function TeamSection({ section }: SectionProps) {
       {isCarousel ? (
         <ScrollRail inverted={isInverted(section.backgroundStyle)}>{items}</ScrollRail>
       ) : (
-        <div className="grid grid-cols-2 gap-5 lg:grid-cols-4">{items}</div>
+        <RevealGroup className="grid grid-cols-2 gap-5 lg:grid-cols-4" staggerDelay={0.06}>
+          {items}
+        </RevealGroup>
       )}
     </SectionShell>
   );

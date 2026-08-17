@@ -222,8 +222,12 @@ export function CatalogPage() {
           ) : products && products.content.length > 0 ? (
             <>
               <div
+                // Remounts the grid (and re-triggers .stagger-fade) whenever the result
+                // set actually changes — a filter tweak should feel like a fresh reveal,
+                // not a silent content swap.
+                key={JSON.stringify(queryParams)}
                 className={clsx(
-                  'grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
+                  'stagger-fade grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
                   // Keeps the grid readable while a filter change is in flight.
                   productsQuery.isFetching && 'opacity-60 transition-opacity',
                 )}
@@ -312,7 +316,7 @@ function Pagination({
 function EmptyState({ hasFilters, onClear }: { hasFilters: boolean; onClear: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-[var(--radius-card)] border border-dashed border-[var(--color-border)] px-6 py-20 text-center">
-      <PackageSearch size={40} className="mb-4 text-[var(--color-subtle)]" aria-hidden="true" />
+      <PackageSearch size={40} className="animate-float mb-4 text-[var(--color-subtle)]" aria-hidden="true" />
       <h2 className="mb-2 text-lg font-semibold">Məhsul tapılmadı</h2>
       <p className="mb-6 max-w-sm text-sm text-[var(--color-body)]">
         {hasFilters

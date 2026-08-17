@@ -34,6 +34,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     Optional<Order> findByIdAndCustomerId(Long id, Long customerId);
 
+    long countByCustomerIdAndStatus(Long customerId, OrderStatus status);
+
     @Query("""
             SELECT o FROM Order o
             WHERE (:search IS NULL OR lower(o.orderNumber) LIKE lower(concat('%', :search, '%'))
@@ -100,4 +102,29 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             """)
     boolean existsDeliveredOrderForCustomerAndProduct(
             @Param("customerId") Long customerId, @Param("productId") Long productId);
+
+    // --- savings wallet ------------------------------------------------------
+    //
+    // Split in two rather than one query joining Order to its items: `discountAmount` is
+    // a per-line total (see OrderItem), safe to sum across a join; `promoDiscount` and
+    // `corporateDiscountAmount` live on Order itself, and summing them through the same
+    // items join would multiply each order's value by its own line count.
+
+    @Query("""
+            SELECT COALESCE(SUM(i.discountAmount), 0) FROM Order o JOIN o.items i
+            WHERE o.customer.id = :customerId
+              AND o.status NOT IN (az.catalog.modules.commerce.order.OrderStatus.CANCELLED,
+                                    az.catalog.modules.commerce.order.OrderStatus.EXPIRED)
+              AND (:since IS NULL OR o.createdAt >= :since)
+            """)
+    BigDecimal sumItemSavings(@Param("customerId") Long customerId, @Param("since") OffsetDateTime since);
+
+    @Query("""
+            SELECT COALESCE(SUM(o.promoDiscount + o.corporateDiscountAmount), 0) FROM Order o
+            WHERE o.customer.id = :customerId
+              AND o.status NOT IN (az.catalog.modules.commerce.order.OrderStatus.CANCELLED,
+                                    az.catalog.modules.commerce.order.OrderStatus.EXPIRED)
+              AND (:since IS NULL OR o.createdAt >= :since)
+            """)
+    BigDecimal sumOrderLevelSavings(@Param("customerId") Long customerId, @Param("since") OffsetDateTime since);
 }

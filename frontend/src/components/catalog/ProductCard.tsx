@@ -1,6 +1,7 @@
 import { memo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Check, Heart, ImageOff, Loader2, Scale, ShoppingCart } from 'lucide-react';
 import { DiscountRibbon, StatusBadges } from './DiscountRibbon';
 import { PriceDisplay } from './PriceDisplay';
@@ -149,8 +150,9 @@ export const ProductCard = memo(function ProductCard({
             </button>
 
             {features.wishlistEnabled && (
-              <button
+              <motion.button
                 type="button"
+                whileTap={{ scale: 0.8 }}
                 onClick={(event) => void handleToggleWishlist(event)}
                 aria-label={wishlisted ? 'Sevimlilərdən çıxar' : 'Sevimlilərə əlavə et'}
                 aria-pressed={wishlisted}
@@ -160,15 +162,25 @@ export const ProductCard = memo(function ProductCard({
                   'dark:bg-black/50',
                 )}
               >
-                <Heart
-                  size={16}
-                  aria-hidden="true"
-                  className={clsx(
-                    'transition-colors',
-                    wishlisted ? 'fill-[var(--color-danger)] text-[var(--color-danger)]' : 'text-[var(--color-subtle)]',
-                  )}
-                />
-              </button>
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.span
+                    key={wishlisted ? 'filled' : 'empty'}
+                    initial={{ scale: 0.5, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ duration: 0.22, ease: [0.34, 1.56, 0.64, 1] }}
+                    className="flex"
+                  >
+                    <Heart
+                      size={16}
+                      aria-hidden="true"
+                      className={clsx(
+                        'transition-colors',
+                        wishlisted ? 'fill-[var(--color-danger)] text-[var(--color-danger)]' : 'text-[var(--color-subtle)]',
+                      )}
+                    />
+                  </motion.span>
+                </AnimatePresence>
+              </motion.button>
             )}
           </div>
 

@@ -17,6 +17,7 @@ export default function AccountRegisterPage() {
   const toast = useToast();
   const queryClient = useQueryClient();
   const next = searchParams.get('next') ?? '/hesab/profil';
+  const referralCode = searchParams.get('ref') ?? undefined;
 
   useEffect(() => {
     if (status === 'idle') {
@@ -41,7 +42,7 @@ export default function AccountRegisterPage() {
 
   const onSubmit = handleSubmit(async (values) => {
     try {
-      await registerCustomer(values);
+      await registerCustomer({ ...values, referralCode });
       await queryClient.invalidateQueries({ queryKey: cartQueryKey });
       navigate(next, { replace: true });
     } catch (error) {
@@ -67,6 +68,12 @@ export default function AccountRegisterPage() {
         <p className="mb-6 text-sm text-[var(--color-subtle)]">
           Bir neçə addımda hesab yaradın.
         </p>
+
+        {referralCode && (
+          <p className="mb-5 rounded-[var(--radius-button)] border border-[var(--color-primary)]/30 bg-[var(--color-primary)]/5 px-3.5 py-2.5 text-sm text-[var(--color-primary)]">
+            🎉 Dəvət kodu ilə qeydiyyatdan keçirsiniz — ilk sifarişinizdən sonra hər ikiniz endirim qazanacaqsınız.
+          </p>
+        )}
 
         <form onSubmit={onSubmit} className="space-y-4" noValidate>
           <div className="grid gap-4 sm:grid-cols-2">

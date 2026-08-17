@@ -1,16 +1,116 @@
 import { useForm } from 'react-hook-form';
-import { useMutation } from '@tanstack/react-query';
-import { KeyRound, Save } from 'lucide-react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { Copy, Gift, KeyRound, PiggyBank, Save } from 'lucide-react';
 import { Field, inputClass } from '@/components/ui/FormField';
+import { AnimatedCounter } from '@/components/ui/AnimatedCounter';
 import { useToast } from '@/components/ui/Toast';
 import { useCustomerAuth, type UpdateProfilePayload } from '@/hooks/useCustomerAuth';
-import { apiClient, ApiError } from '@/lib/api';
+import { apiClient, ApiError, getData } from '@/lib/api';
+import { formatPrice } from '@/lib/format';
 
 export default function AccountProfilePage() {
   return (
     <div className="space-y-6">
+      <SavingsWallet />
+      <ReferralCard />
       <ProfileForm />
       <PasswordForm />
+    </div>
+  );
+}
+
+/**
+ * "Invite a friend" — the referral code is generated server-side (see
+ * CustomerAuthService#profile, which self-heals accounts created before this feature
+ * existed) so it's always present on `customer` once the profile has loaded once.
+ */
+function ReferralCard() {
+  const { customer } = useCustomerAuth();
+  const toast = useToast();
+
+  if (!customer?.referralCode) {
+    return null;
+  }
+
+  const link = `${window.location.origin}/hesab/qeydiyyat?ref=${customer.referralCode}`;
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(link);
+      toast.success('Dəvət linki kopyalandı');
+    } catch {
+      toast.error('Kopyalanmadı');
+    }
+  };
+
+  return (
+    <div className="card p-6">
+      <h2 className="mb-1.5 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-[var(--color-subtle)]">
+        <Gift size={16} aria-hidden="true" />
+        Dostunu dəvət et
+      </h2>
+      <p className="mb-4 text-sm text-[var(--color-body)]">
+        Dostunuz bu linklə qeydiyyatdan keçib ilk sifarişini tamamlasın — hər ikiniz endirim promo kodu qazanırsınız.
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <code className="min-w-0 flex-1 truncate rounded-[var(--radius-input)] border border-[var(--color-border)] bg-[var(--color-muted)] px-3 py-2.5 text-sm">
+          {link}
+        </code>
+        <button
+          type="button"
+          onClick={() => void copyLink()}
+          className="flex shrink-0 items-center gap-2 rounded-[var(--radius-button)] bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-[var(--color-primary-contrast)] transition-colors hover:bg-[var(--color-primary-hover)]"
+        >
+          <Copy size={15} aria-hidden="true" />
+          Kopyala
+        </button>
+      </div>
+    </div>
+  );
+}
+
+interface SavingsSummary {
+  lifetimeSavings: number;
+  yearSavings: number;
+}
+
+/**
+ * "Savings Wallet" — the total of every campaign, promo code and corporate discount
+ * across a customer's real order history, not a marketing estimate. Rendered first on
+ * the account landing page because it's the one number a returning shopper actually
+ * wants to see: proof that shopping here paid off.
+ */
+function SavingsWallet() {
+  const query = useQuery({
+    queryKey: ['customer', 'savings'],
+    queryFn: () => getData<SavingsSummary>('/customer/savings'),
+  });
+
+  const data = query.data;
+  if (!query.isLoading && (!data || data.lifetimeSavings <= 0)) {
+    return null;
+  }
+
+  return (
+    <div className="card relative overflow-hidden p-6 text-center">
+      <div className="gradient-mesh opacity-40" aria-hidden="true" />
+      <div className="relative">
+        <PiggyBank size={26} className="mx-auto mb-2 text-[var(--color-success)]" aria-hidden="true" />
+        {query.isLoading || !data ? (
+          <div className="skeleton mx-auto h-10 w-40" />
+        ) : (
+          <p className="font-display text-4xl font-bold tabular text-[var(--color-success)]">
+            <AnimatedCounter value={formatPrice(data.lifetimeSavings)} />
+          </p>
+        )}
+        <p className="mt-1 text-sm text-[var(--color-subtle)]">ümumi qənaətiniz</p>
+        {data && data.yearSavings > 0 && (
+          <p className="mt-2 text-xs text-[var(--color-subtle)]">
+            Bu il: <span className="font-semibold text-[var(--color-heading)]">{formatPrice(data.yearSavings)}</span>{' '}
+            qənaət etdiniz
+          </p>
+        )}
+      </div>
     </div>
   );
 }

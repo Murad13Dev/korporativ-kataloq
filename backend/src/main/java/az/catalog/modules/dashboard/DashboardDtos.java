@@ -121,4 +121,11 @@ public final class DashboardDtos {
 
     public record ProductStatusCount(ContentStatus status, long count) {
     }
+
+    /** Live, in-memory — see {@code ProductPresenceService}. Never cached, never stored. */
+    public record LiveVisitorsSnapshot(int totalViewers, List<LiveProduct> topProducts) {
+    }
+
+    public record LiveProduct(Long id, String name, String slug, int viewers) {
+    }
 }

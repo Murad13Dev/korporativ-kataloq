@@ -88,7 +88,7 @@ export default function CheckoutPage() {
       <h1 className="mb-8 text-3xl font-bold tracking-tight">Sifarişi tamamla</h1>
 
       <form onSubmit={onSubmit} className="grid gap-8 lg:grid-cols-[1fr_360px]" noValidate>
-        <div className="space-y-6">
+        <div className="stagger-fade space-y-6">
           {/* ---------------- contact ---------------- */}
           <fieldset className="card p-5">
             <legend className="mb-4 px-1 text-lg font-bold">Əlaqə məlumatları</legend>
@@ -137,9 +137,9 @@ export default function CheckoutPage() {
                   <label
                     key={option.value}
                     className={clsx(
-                      'flex cursor-pointer items-start gap-3 rounded-[var(--radius-card)] border-2 p-4 transition-colors',
+                      'flex cursor-pointer items-start gap-3 rounded-[var(--radius-card)] border-2 p-4 transition-all duration-200',
                       selected
-                        ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5'
+                        ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5 shadow-[var(--shadow-card)]'
                         : 'border-[var(--color-border)] hover:border-[var(--color-subtle)]',
                     )}
                   >

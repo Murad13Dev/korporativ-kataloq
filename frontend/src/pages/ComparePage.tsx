@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueries } from '@tanstack/react-query';
-import { Scale, X } from 'lucide-react';
+import clsx from 'clsx';
+import { Scale, SplitSquareHorizontal, X } from 'lucide-react';
 import { PriceDisplay } from '@/components/catalog/PriceDisplay';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { useCompareStore } from '@/hooks/useCompare';
@@ -18,6 +20,7 @@ import type { ProductDetail } from '@/types/api';
 export default function ComparePage() {
   const slugs = useCompareStore((state) => state.slugs);
   const remove = useCompareStore((state) => state.remove);
+  const [onlyDifferences, setOnlyDifferences] = useState(false);
 
   const queries = useQueries({
     queries: slugs.map((slug) => ({
@@ -79,11 +82,43 @@ export default function ComparePage() {
     return null;
   };
 
+  // A row "differs" when the products don't all report the same value for it — missing
+  // vs. present counts as a difference too, since that's exactly the kind of thing a
+  // shopper comparing products wants pointed out, not silently normalised away.
+  const rowDiffers = (row: { attributeCode: string }): boolean => {
+    if (products.length < 2) {
+      return false;
+    }
+    const values = products.map((product) => valueFor(product, row.attributeCode) ?? '—');
+    return new Set(values).size > 1;
+  };
+
+  const visibleRows = onlyDifferences ? rows.filter(rowDiffers) : rows;
+
   let lastGroup = '';
 
   return (
     <div className="container-site py-8 lg:py-12">
-      <h1 className="mb-8 text-3xl font-bold tracking-tight">Məhsulları müqayisə et</h1>
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-3xl font-bold tracking-tight">Məhsulları müqayisə et</h1>
+
+        {products.length > 1 && rows.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setOnlyDifferences((current) => !current)}
+            aria-pressed={onlyDifferences}
+            className={clsx(
+              'flex items-center gap-2 rounded-[var(--radius-button)] border px-4 py-2 text-sm font-medium transition-colors',
+              onlyDifferences
+                ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
+                : 'border-[var(--color-border)] text-[var(--color-body)] hover:bg-[var(--color-muted)]',
+            )}
+          >
+            <SplitSquareHorizontal size={15} aria-hidden="true" />
+            Yalnız fərqləri göstər
+          </button>
+        )}
+      </div>
 
       <div className="overflow-x-auto">
         <table className="w-full min-w-[640px] border-collapse">
@@ -131,9 +166,15 @@ export default function ComparePage() {
                   Seçilmiş məhsullarda müqayisə ediləcək xüsusiyyət yoxdur
                 </td>
               </tr>
+            ) : visibleRows.length === 0 ? (
+              <tr>
+                <td colSpan={products.length + 1} className="p-6 text-center text-sm text-[var(--color-subtle)]">
+                  Seçilmiş məhsullar arasında fərq yoxdur
+                </td>
+              </tr>
             ) : (
-              rows.map((row) => {
-                const showGroupHeader = row.groupName !== lastGroup;
+              visibleRows.map((row) => {
+                const showGroupHeader = !onlyDifferences && row.groupName !== lastGroup;
                 lastGroup = row.groupName;
                 return (
                   <FragmentRow
@@ -142,6 +183,7 @@ export default function ComparePage() {
                     showGroupHeader={showGroupHeader}
                     products={products}
                     valueFor={valueFor}
+                    differs={rowDiffers(row)}
                   />
                 );
               })
@@ -158,11 +200,13 @@ function FragmentRow({
   showGroupHeader,
   products,
   valueFor,
+  differs,
 }: {
   row: { groupName: string; attributeCode: string; label: string };
   showGroupHeader: boolean;
   products: ProductDetail[];
   valueFor: (product: ProductDetail, attributeCode: string) => string | null;
+  differs: boolean;
 }) {
   return (
     <>
@@ -176,11 +220,28 @@ function FragmentRow({
           </td>
         </tr>
       )}
-      <tr className="border-b border-[var(--color-border)]">
-        <td className="p-3 text-sm font-medium text-[var(--color-body)]">{row.label}</td>
+      <tr className={clsx('border-b border-[var(--color-border)]', differs && 'bg-[var(--color-primary)]/[0.04]')}>
+        <td className="p-3 text-sm font-medium text-[var(--color-body)]">
+          <span className="flex items-center gap-1.5">
+            {row.label}
+            {differs && (
+              <span
+                className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-primary)]"
+                title="Məhsullar arasında fərqlənir"
+                aria-hidden="true"
+              />
+            )}
+          </span>
+        </td>
         {products.map((product) => (
-          <td key={product.id} className="p-3 text-center text-sm text-[var(--color-heading)]">
-            {valueFor(product, row.attributeCode) ?? <span className="text-[var(--color-subtle)]">—</span>}
+          <td
+            key={product.id}
+            className={clsx(
+              'p-3 text-center text-sm',
+              differs ? 'font-semibold text-[var(--color-primary)]' : 'text-[var(--color-heading)]',
+            )}
+          >
+            {valueFor(product, row.attributeCode) ?? <span className="font-normal text-[var(--color-subtle)]">—</span>}
           </td>
         ))}
       </tr>

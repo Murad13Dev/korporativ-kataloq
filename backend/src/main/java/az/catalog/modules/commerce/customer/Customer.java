@@ -84,6 +84,19 @@ public class Customer extends SoftDeletableEntity {
     @Column(name = "last_login_at")
     private OffsetDateTime lastLoginAt;
 
+    /** This customer's own shareable code — generated once, at registration. */
+    @Column(name = "referral_code", length = 16)
+    private String referralCode;
+
+    /** Who brought them in, captured at registration; {@code null} for organic sign-ups. */
+    @Column(name = "referred_by_customer_id")
+    private Long referredByCustomerId;
+
+    /** Set once the referrer's reward has been minted, so a customer's first order can
+        never pay out twice (e.g. COMPLETED -> refunded-and-recompleted). */
+    @Column(name = "referral_rewarded_at")
+    private OffsetDateTime referralRewardedAt;
+
     public String fullName() {
         return firstName + " " + lastName;
     }

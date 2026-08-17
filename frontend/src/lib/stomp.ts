@@ -163,4 +163,6 @@ export const topics = {
   /** The visitor's own thread; the token is the capability. */
   conversation: (visitorToken: string) => `/topic/chat/${visitorToken}`,
   adminInbox: '/topic/admin/chat',
+  /** Live viewer-count for one product — open to anyone, nothing sensitive rides on it. */
+  productPresence: (productId: number) => `/topic/product/presence/${productId}`,
 };

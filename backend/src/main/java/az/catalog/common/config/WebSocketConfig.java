@@ -44,6 +44,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     public static final String TOPIC_CONVERSATION = "/topic/chat/";
     public static final String TOPIC_ADMIN_INBOX = "/topic/admin/chat";
+    /** Live viewer-count broadcast for one product; anyone may subscribe, nothing sensitive rides on it. */
+    public static final String TOPIC_PRODUCT_PRESENCE = "/topic/product/presence/";
 
     private final JwtService jwtService;
     private final AppProperties properties;

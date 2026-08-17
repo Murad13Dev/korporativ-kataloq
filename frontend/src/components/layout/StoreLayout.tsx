@@ -2,15 +2,31 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Menu, Phone, Search, ShoppingCart, User, X } from 'lucide-react';
 import { useSiteConfig } from '@/hooks/useSiteConfig';
 import { useCartCount } from '@/hooks/useCart';
 import { ChatWidget } from '@/components/chat/ChatWidget';
 import { CompareBar } from '@/components/catalog/CompareBar';
 import { SearchOverlay } from '@/components/layout/SearchOverlay';
+import { ScrollToTop } from '@/components/ui/ScrollToTop';
 import { getData } from '@/lib/api';
 import { setJsonLd } from '@/lib/theme';
 import type { MenuItem } from '@/types/api';
+
+/** Once the page has scrolled past the header's own height, the translucent bar earns a
+    firmer border and shadow — cheap depth cue that a flat 85%-opacity bar never gets on
+    its own, and free to compute since it only needs a boolean, not the scroll offset. */
+function useScrolled(threshold = 8) {
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > threshold);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [threshold]);
+  return scrolled;
+}
 
 /**
  * Fallback navigation, used only before the menus load or if none are published.
@@ -53,6 +69,7 @@ export function StoreLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const location = useLocation();
+  const scrolled = useScrolled();
 
   // Navigating with the mobile menu or search open would otherwise leave it covering the new page.
   useEffect(() => {
@@ -112,7 +129,14 @@ export function StoreLayout() {
       </a>
 
       {/* ---------------- header ---------------- */}
-      <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[var(--color-canvas)]/85 backdrop-blur-md">
+      <header
+        className={clsx(
+          'sticky top-0 z-50 border-b bg-[var(--color-canvas)]/85 backdrop-blur-md transition-shadow duration-300',
+          scrolled
+            ? 'border-[var(--color-border)] shadow-[var(--shadow-card)]'
+            : 'border-transparent',
+        )}
+      >
         <div className="container-site flex h-[var(--header-height)] items-center gap-4">
           <Link to="/" className="flex shrink-0 items-center gap-2.5" aria-label={companyName}>
             {branding?.logoLightUrl ? (
@@ -162,11 +186,20 @@ export function StoreLayout() {
                 aria-label={`Səbət${cartCount > 0 ? `, ${cartCount} məhsul` : ', boş'}`}
               >
                 <ShoppingCart size={20} aria-hidden="true" />
-                {cartCount > 0 && (
-                  <span className="absolute -end-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--color-sale)] px-1 text-[0.6875rem] font-bold leading-none text-white tabular">
-                    {cartCount > 99 ? '99+' : cartCount}
-                  </span>
-                )}
+                <AnimatePresence>
+                  {cartCount > 0 && (
+                    <motion.span
+                      key={cartCount}
+                      initial={{ scale: 0.4, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.4, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: [0.34, 1.56, 0.64, 1] }}
+                      className="absolute -end-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--color-sale)] px-1 text-[0.6875rem] font-bold leading-none text-white tabular"
+                    >
+                      {cartCount > 99 ? '99+' : cartCount}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
               </Link>
             )}
 
@@ -183,50 +216,56 @@ export function StoreLayout() {
         </div>
 
         {/* ---------------- mobile menu ---------------- */}
-        {menuOpen && (
-          <nav
-            className="border-t border-[var(--color-border)] bg-[var(--color-canvas)] lg:hidden"
-            aria-label="Mobil menyu"
-          >
-            <div className="container-site flex flex-col py-2">
-              {navigation.header.map((item) => (
-                <div key={item.id}>
-                  <NavLink
-                    to={item.url}
-                    end={item.url === '/'}
-                    className={({ isActive }) =>
-                      clsx(
-                        'block rounded-[var(--radius-button)] px-3 py-3 text-base font-medium transition-colors',
-                        isActive
-                          ? 'bg-[var(--color-muted)] text-[var(--color-primary)]'
-                          : 'text-[var(--color-body)]',
-                      )
-                    }
-                  >
-                    {item.title}
-                  </NavLink>
-                  {/* Sub-items are flattened one level in: a nested drawer on a phone
-                      hides more than it reveals. */}
-                  {item.children.map((child) => (
+        <AnimatePresence>
+          {menuOpen && (
+            <motion.nav
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+              className="overflow-hidden border-t border-[var(--color-border)] bg-[var(--color-canvas)] lg:hidden"
+              aria-label="Mobil menyu"
+            >
+              <div className="container-site flex flex-col py-2">
+                {navigation.header.map((item) => (
+                  <div key={item.id}>
                     <NavLink
-                      key={child.id}
-                      to={child.url}
-                      className="block rounded-[var(--radius-button)] px-3 py-2.5 ps-7 text-sm text-[var(--color-body)]"
+                      to={item.url}
+                      end={item.url === '/'}
+                      className={({ isActive }) =>
+                        clsx(
+                          'block rounded-[var(--radius-button)] px-3 py-3 text-base font-medium transition-colors',
+                          isActive
+                            ? 'bg-[var(--color-muted)] text-[var(--color-primary)]'
+                            : 'text-[var(--color-body)]',
+                        )
+                      }
                     >
-                      {child.title}
+                      {item.title}
                     </NavLink>
-                  ))}
-                </div>
-              ))}
-              <NavLink
-                to="/hesab"
-                className="rounded-[var(--radius-button)] px-3 py-3 text-base font-medium text-[var(--color-body)]"
-              >
-                Hesabım
-              </NavLink>
-            </div>
-          </nav>
-        )}
+                    {/* Sub-items are flattened one level in: a nested drawer on a phone
+                        hides more than it reveals. */}
+                    {item.children.map((child) => (
+                      <NavLink
+                        key={child.id}
+                        to={child.url}
+                        className="block rounded-[var(--radius-button)] px-3 py-2.5 ps-7 text-sm text-[var(--color-body)]"
+                      >
+                        {child.title}
+                      </NavLink>
+                    ))}
+                  </div>
+                ))}
+                <NavLink
+                  to="/hesab"
+                  className="rounded-[var(--radius-button)] px-3 py-3 text-base font-medium text-[var(--color-body)]"
+                >
+                  Hesabım
+                </NavLink>
+              </div>
+            </motion.nav>
+          )}
+        </AnimatePresence>
 
         {searchOpen && <SearchOverlay onClose={() => setSearchOpen(false)} />}
       </header>
@@ -320,6 +359,7 @@ export function StoreLayout() {
       {/* Renders nothing unless chat is enabled in the published configuration. */}
       <ChatWidget />
       <CompareBar />
+      <ScrollToTop />
     </div>
   );
 }
@@ -364,7 +404,7 @@ function HeaderLink({ item }: { item: MenuItem }) {
         {item.title}
       </NavLink>
 
-      <div className="invisible absolute start-0 top-full z-50 min-w-56 pt-2 opacity-0 transition-all group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+      <div className="invisible absolute start-0 top-full z-50 min-w-56 -translate-y-1 pt-2 opacity-0 transition-all duration-200 ease-out group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100">
         <ul className="overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-canvas)] py-1.5 shadow-[var(--shadow-popover)]">
           {item.children.map((child) => (
             <li key={child.id}>

@@ -105,4 +105,19 @@ public class CartController {
             @RequestLanguage String language) {
         return DataResponse.of(cartService.removePromoCode(CartOwner.from(sessionId), language));
     }
+
+    @Operation(summary = "SKU siyahısından toplu əlavə",
+            description = """
+                    B2B sifariş axını: SKU + say cütlərindən ibarət siyahı (məsələn CSV-dən
+                    çıxarılmış) birbaşa səbətə əlavə olunur. Tapılmayan və ya əlavə edilə
+                    bilməyən sətirlər sifarişi dayandırmır — cavabda ayrıca sadalanır.
+                    """)
+    @PostMapping("/bulk-import")
+    public DataResponse<CartDtos.BulkAddResponse> bulkImport(
+            @RequestHeader(value = SESSION_HEADER, required = false) String sessionId,
+            @Valid @RequestBody CartDtos.BulkImportRequest request,
+            @RequestLanguage String language) {
+        return DataResponse.of(
+                cartService.bulkImportBySku(CartOwner.from(sessionId), request.lines(), language));
+    }
 }

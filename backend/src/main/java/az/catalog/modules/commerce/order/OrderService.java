@@ -5,6 +5,10 @@ import az.catalog.common.exception.ErrorCode;
 import az.catalog.common.security.SecurityUtils;
 import az.catalog.modules.catalog.product.ProductRepository;
 import az.catalog.modules.catalog.product.ProductVariantRepository;
+import az.catalog.modules.commerce.cart.CartDtos;
+import az.catalog.modules.commerce.cart.CartOwner;
+import az.catalog.modules.commerce.cart.CartService;
+import az.catalog.modules.commerce.customer.ReferralService;
 import az.catalog.modules.commerce.loyalty.LoyaltyService;
 import az.catalog.modules.commerce.promo.PromoCode;
 import az.catalog.modules.commerce.promo.PromoCodeRepository;
@@ -19,7 +23,9 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -37,6 +43,8 @@ public class OrderService {
     private final ProductRepository productRepository;
     private final ProductVariantRepository variantRepository;
     private final LoyaltyService loyaltyService;
+    private final ReferralService referralService;
+    private final CartService cartService;
     private final PromoCodeService promoCodeService;
     private final PromoCodeRepository promoCodeRepository;
     private final MailService mailService;
@@ -62,6 +70,19 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
+    public OrderDtos.SavingsSummary savingsSummary(Long customerId) {
+        OffsetDateTime yearStart = OffsetDateTime.now()
+                .withDayOfYear(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
+
+        BigDecimal lifetime = orderRepository.sumItemSavings(customerId, null)
+                .add(orderRepository.sumOrderLevelSavings(customerId, null));
+        BigDecimal thisYear = orderRepository.sumItemSavings(customerId, yearStart)
+                .add(orderRepository.sumOrderLevelSavings(customerId, yearStart));
+
+        return new OrderDtos.SavingsSummary(lifetime, thisYear);
+    }
+
+    @Transactional(readOnly = true)
     public OrderDtos.OrderDetail get(Long id) {
         return toDetail(orderRepository.findDetailById(id)
                 .orElseThrow(() -> ApiException.notFound("Sifariş", id)));
@@ -73,6 +94,36 @@ public class OrderService {
         Order order = orderRepository.findByIdAndCustomerId(id, customerId)
                 .orElseThrow(() -> ApiException.notFound("Sifariş", id));
         return toDetail(order);
+    }
+
+    /**
+     * "Reorder" — every line from a past order of this customer's, re-added to their
+     * current cart at today's prices (a campaign that has since ended or started is not
+     * replayed; the cart always prices against what's live right now, same as any other
+     * add-to-cart). A line whose product was deleted since, or that's now out of stock,
+     * is skipped and reported rather than blocking the rest of the order.
+     */
+    @Transactional
+    public CartDtos.BulkAddResponse reorder(Long orderId, Long customerId, String language) {
+        Order order = orderRepository.findByIdAndCustomerId(orderId, customerId)
+                .orElseThrow(() -> ApiException.notFound("Sifariş", orderId));
+
+        List<CartDtos.BulkLine> lines = order.getItems().stream()
+                .filter(item -> item.getProduct() != null)
+                .map(item -> new CartDtos.BulkLine(
+                        item.getProduct().getId(), item.getVariantId(), item.getQuantity(), item.getProductName()))
+                .toList();
+
+        CartDtos.BulkAddResponse result = cartService.bulkAdd(new CartOwner(customerId, null), lines, language);
+
+        // A line whose product no longer exists at all never reached bulkAdd, so it needs
+        // its own skip message — otherwise it would just silently vanish from the reorder.
+        List<String> skipped = new ArrayList<>(result.skipped());
+        order.getItems().stream()
+                .filter(item -> item.getProduct() == null)
+                .forEach(item -> skipped.add(item.getProductName() + ": məhsul artıq mövcud deyil"));
+
+        return new CartDtos.BulkAddResponse(result.cart(), result.addedCount(), skipped);
     }
 
     /** Guest tracking: the order number alone is guessable, so the e-mail must match. */
@@ -149,7 +200,10 @@ public class OrderService {
                 order.setPaymentStatus(PaymentStatus.REFUNDED);
                 releaseStock(order);
             }
-            case COMPLETED -> loyaltyService.earnForOrder(order);
+            case COMPLETED -> {
+                loyaltyService.earnForOrder(order);
+                referralService.rewardIfFirstOrder(order);
+            }
             default -> {
                 // PENDING / AWAITING_PAYMENT / PROCESSING carry no extra effect.
             }

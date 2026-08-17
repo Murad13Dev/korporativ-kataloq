@@ -29,6 +29,8 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
         return findByIdAndDeletedAtIsNull(id);
     }
 
+    Optional<Product> findBySkuIgnoreCaseAndDeletedAtIsNull(String sku);
+
     /**
      * Full aggregate for the product detail page. Only {@code images} is join-fetched, and
      * nothing else that is itself a collection. Two lessons learned the hard way (see the
@@ -278,4 +280,20 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
             LIMIT :limit
             """, nativeQuery = true)
     List<Long> findCoPurchasedProductIds(@Param("productId") Long productId, @Param("limit") int limit);
+
+    /**
+     * Real, honest social proof for the product page: how many distinct orders actually
+     * contained this product recently. Not an estimate and not a curated "popular" flag —
+     * the same cancelled/expired exclusion as {@link #findCoPurchasedProductIds} applies,
+     * so an abandoned order never inflates the count.
+     */
+    @Query(value = """
+            SELECT COUNT(DISTINCT oi.order_id)
+            FROM order_items oi
+            JOIN orders o ON o.id = oi.order_id
+            WHERE oi.product_id = :productId
+              AND o.status NOT IN ('CANCELLED', 'EXPIRED')
+              AND o.created_at >= :since
+            """, nativeQuery = true)
+    long countRecentBuyers(@Param("productId") Long productId, @Param("since") OffsetDateTime since);
 }

@@ -76,7 +76,9 @@ public class SecurityConfig {
                                 "/api/public/contact-requests",
                                 "/api/public/newsletter-subscriptions",
                                 "/api/public/products/*/inquiry",
-                                "/api/public/products/*/notify-stock").permitAll()
+                                "/api/public/products/*/notify-stock",
+                                "/api/public/products/*/presence",
+                                "/api/public/products/*/price-watch").permitAll()
                         // Carts, checkout and chat work for guests: authorization is
                         // enforced per-resource (session token / ownership) in the services.
                         .requestMatchers("/api/public/cart/**").permitAll()

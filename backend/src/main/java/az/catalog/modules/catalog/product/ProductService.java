@@ -625,6 +625,7 @@ public class ProductService {
 
         List<Object[]> ratingRows = reviewRepository.ratingSummary(product.getId());
         Object[] ratingRow = ratingRows.isEmpty() ? new Object[]{0, 0L} : ratingRows.get(0);
+        long recentBuyerCount = repository.countRecentBuyers(product.getId(), OffsetDateTime.now().minusDays(7));
 
         return new ProductDtos.ProductDetail(
                 product.getId(), product.getSlug(), product.getSku(), product.getBarcode(),
@@ -646,7 +647,7 @@ public class ProductService {
                 product.getPublishedAt(),
                 toVariantDtos(variants, product),
                 buildVariantAttributes(variants, language, fallback),
-                ratingAverage(ratingRow), ratingCount(ratingRow));
+                ratingAverage(ratingRow), ratingCount(ratingRow), recentBuyerCount);
     }
 
     private double ratingAverage(Object[] row) {

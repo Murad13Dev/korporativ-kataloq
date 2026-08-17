@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { ChevronLeft, ChevronRight, Package } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Package, RotateCcw } from 'lucide-react';
 import { SectionLoader } from '@/components/ui/PageLoader';
+import { useReorder } from '@/hooks/useCart';
 import { getPage } from '@/lib/api';
 import { formatDate, formatPrice } from '@/lib/format';
 import type { OrderStatus, OrderSummary } from '@/types/api';
@@ -25,6 +26,7 @@ const STATUS_STYLE: Record<OrderStatus, string> = {
 
 export default function AccountOrdersPage() {
   const [page, setPage] = useState(0);
+  const reorder = useReorder();
 
   const { data, isLoading } = useQuery({
     queryKey: ['customer', 'orders', page],
@@ -54,29 +56,41 @@ export default function AccountOrdersPage() {
     <div className="card overflow-hidden">
       <ul className="divide-y divide-[var(--color-border)]">
         {orders.map((order) => (
-          <li key={order.id}>
+          <li key={order.id} className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
             <Link
               to={`/hesab/sifarisler/${order.id}`}
-              className="flex flex-col gap-2 p-4 transition-colors hover:bg-[var(--color-muted)]/50 sm:flex-row sm:items-center sm:justify-between sm:p-5"
+              className="min-w-0 flex-1 transition-colors hover:text-[var(--color-primary)]"
             >
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-[var(--color-heading)]">#{order.orderNumber}</span>
-                  <span
-                    className={clsx(
-                      'rounded-full px-2 py-0.5 text-[0.6875rem] font-semibold',
-                      STATUS_STYLE[order.status],
-                    )}
-                  >
-                    {order.statusLabel}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-[var(--color-subtle)]">
-                  {formatDate(order.createdAt)} · {order.itemCount} məhsul
-                </p>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-[var(--color-heading)]">#{order.orderNumber}</span>
+                <span
+                  className={clsx(
+                    'rounded-full px-2 py-0.5 text-[0.6875rem] font-semibold',
+                    STATUS_STYLE[order.status],
+                  )}
+                >
+                  {order.statusLabel}
+                </span>
               </div>
-              <span className="font-display text-lg font-bold tabular">{formatPrice(order.total)}</span>
+              <p className="mt-1 text-xs text-[var(--color-subtle)]">
+                {formatDate(order.createdAt)} · {order.itemCount} məhsul
+              </p>
             </Link>
+
+            <div className="flex shrink-0 items-center gap-3">
+              <span className="font-display text-lg font-bold tabular">{formatPrice(order.total)}</span>
+              <button
+                type="button"
+                onClick={() => reorder.mutate(order.id)}
+                disabled={reorder.isPending}
+                aria-label="Yenidən sifariş et"
+                title="Yenidən sifariş et"
+                className="flex items-center gap-1.5 rounded-[var(--radius-button)] border border-[var(--color-border)] px-3 py-2 text-sm font-medium text-[var(--color-body)] transition-colors hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] disabled:opacity-50"
+              >
+                <RotateCcw size={14} aria-hidden="true" />
+                <span className="hidden sm:inline">Yenidən sifariş</span>
+              </button>
+            </div>
           </li>
         ))}
       </ul>

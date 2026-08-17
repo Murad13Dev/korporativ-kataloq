@@ -4,7 +4,7 @@ import { SearchX } from 'lucide-react';
 export default function NotFoundPage() {
   return (
     <div className="container-site flex flex-col items-center py-24 text-center">
-      <SearchX size={44} className="mb-5 text-[var(--color-subtle)]" aria-hidden="true" />
+      <SearchX size={44} className="animate-float mb-5 text-[var(--color-subtle)]" aria-hidden="true" />
       <p className="mb-1 font-display text-5xl font-bold text-[var(--color-primary)]">404</p>
       <h1 className="mb-3 text-2xl font-bold">Səhifə tapılmadı</h1>
       <p className="mb-8 max-w-sm text-[var(--color-body)]">

@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from 'react';
 import clsx from 'clsx';
+import { AnimatePresence, motion } from 'framer-motion';
 import { AlertTriangle, CheckCircle2, Info, X, XCircle } from 'lucide-react';
 
 type ToastVariant = 'success' | 'error' | 'warning' | 'info';
@@ -101,42 +102,41 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         aria-live="polite"
         className="pointer-events-none fixed bottom-4 end-4 z-[100] flex w-full max-w-sm flex-col gap-2 px-4 sm:px-0"
       >
-        {toasts.map((toast) => {
-          const variant = VARIANTS[toast.variant];
-          const Icon = variant.icon;
-          return (
-            <div
-              key={toast.id}
-              className={clsx(
-                'pointer-events-auto flex items-start gap-3 rounded-[var(--radius-card)] border px-4 py-3',
-                'bg-[var(--color-surface)] shadow-[var(--shadow-popover)]',
-                'animate-[toast-in_240ms_var(--ease-out-quint)]',
-                variant.className,
-              )}
-            >
-              <Icon size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
-              <p className="flex-1 text-sm font-medium text-[var(--color-heading)]">
-                {toast.message}
-              </p>
-              <button
-                type="button"
-                onClick={() => dismiss(toast.id)}
-                aria-label="Bildirişi bağla"
-                className="shrink-0 rounded p-0.5 text-[var(--color-subtle)] transition-colors hover:text-[var(--color-heading)]"
+        <AnimatePresence initial={false}>
+          {toasts.map((toast) => {
+            const variant = VARIANTS[toast.variant];
+            const Icon = variant.icon;
+            return (
+              <motion.div
+                key={toast.id}
+                layout
+                initial={{ opacity: 0, y: 16, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, x: 48, scale: 0.95, transition: { duration: 0.2 } }}
+                transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                className={clsx(
+                  'pointer-events-auto flex items-start gap-3 rounded-[var(--radius-card)] border px-4 py-3',
+                  'bg-[var(--color-surface)] shadow-[var(--shadow-popover)]',
+                  variant.className,
+                )}
               >
-                <X size={16} aria-hidden="true" />
-              </button>
-            </div>
-          );
-        })}
+                <Icon size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
+                <p className="flex-1 text-sm font-medium text-[var(--color-heading)]">
+                  {toast.message}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => dismiss(toast.id)}
+                  aria-label="Bildirişi bağla"
+                  className="shrink-0 rounded p-0.5 text-[var(--color-subtle)] transition-colors hover:text-[var(--color-heading)]"
+                >
+                  <X size={16} aria-hidden="true" />
+                </button>
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
       </div>
-
-      <style>{`
-        @keyframes toast-in {
-          from { opacity: 0; transform: translateY(8px) scale(0.98); }
-          to   { opacity: 1; transform: translateY(0) scale(1); }
-        }
-      `}</style>
     </ToastContext.Provider>
   );
 }

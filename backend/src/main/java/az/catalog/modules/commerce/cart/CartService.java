@@ -121,6 +121,60 @@ public class CartService {
     }
 
     /**
+     * Shared engine behind "reorder a past order" and "B2B bulk import" — both are really
+     * the same operation, add several known products at once, and neither can be allowed
+     * to fail as a unit: one discontinued SKU in a 40-line purchase order must not block
+     * the other 39. Each line is attempted independently through the same validation
+     * {@link #addItem} already applies (stock, variant requirement, purchasability); a
+     * failure is recorded as a skip message instead of aborting the batch.
+     */
+    @Transactional
+    public CartDtos.BulkAddResponse bulkAdd(CartOwner owner, List<CartDtos.BulkLine> lines, String language) {
+        requireCommerceEnabled();
+        int added = 0;
+        List<String> skipped = new ArrayList<>();
+
+        for (CartDtos.BulkLine line : lines) {
+            try {
+                addItem(owner, new CartDtos.AddItemRequest(line.productId(), line.quantity(), line.variantId()), language);
+                added++;
+            } catch (ApiException ex) {
+                skipped.add(line.reference() + ": " + ex.getMessage());
+            }
+        }
+
+        return new CartDtos.BulkAddResponse(getCart(owner, language), added, skipped);
+    }
+
+    /**
+     * The B2B path: a shopper pastes or uploads a SKU + quantity list, and each row is
+     * resolved to a product here before falling into the same {@link #bulkAdd} engine an
+     * order reorder uses. An unknown SKU is reported by the text the shopper typed, since
+     * there is no product id yet to reference.
+     */
+    @Transactional
+    public CartDtos.BulkAddResponse bulkImportBySku(CartOwner owner, List<CartDtos.SkuLine> requested, String language) {
+        List<CartDtos.BulkLine> resolved = new ArrayList<>();
+        List<String> unresolved = new ArrayList<>();
+
+        for (CartDtos.SkuLine row : requested) {
+            String sku = row.sku().trim();
+            productRepository.findBySkuIgnoreCaseAndDeletedAtIsNull(sku)
+                    .ifPresentOrElse(
+                            product -> resolved.add(new CartDtos.BulkLine(product.getId(), null, row.quantity(), sku)),
+                            () -> unresolved.add(sku + ": SKU tapılmadı"));
+        }
+
+        CartDtos.BulkAddResponse result = bulkAdd(owner, resolved, language);
+        if (unresolved.isEmpty()) {
+            return result;
+        }
+        List<String> allSkipped = new ArrayList<>(result.skipped());
+        allSkipped.addAll(unresolved);
+        return new CartDtos.BulkAddResponse(result.cart(), result.addedCount(), allSkipped);
+    }
+
+    /**
      * A product with active variants cannot be added "bare" — the shopper must have
      * picked one, or the line would be ambiguous about which SKU/stock it draws from.
      */

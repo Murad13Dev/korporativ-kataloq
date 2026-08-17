@@ -25,7 +25,10 @@ public final class CustomerDtos {
             /** Guest cart to fold into the new account. */
             @Size(max = 64) String cartSessionId,
             @AssertTrue(message = "İstifadə şərtləri qəbul edilməlidir")
-            boolean termsAccepted
+            boolean termsAccepted,
+            /** Another customer's referral code, from a `?ref=` link. An unknown or
+                self-referral code is silently ignored rather than rejected. */
+            @Size(max = 16) String referralCode
     ) {
     }
 
@@ -54,14 +57,15 @@ public final class CustomerDtos {
             String locale,
             boolean emailVerified,
             boolean marketingOptIn,
-            OffsetDateTime createdAt
+            OffsetDateTime createdAt,
+            String referralCode
     ) {
         public static CustomerProfile from(Customer customer) {
             return new CustomerProfile(
                     customer.getId(), customer.getFirstName(), customer.getLastName(),
                     customer.getEmail(), customer.getPhone(), customer.getCompanyName(),
                     customer.getCustomerType(), customer.getLocale(), customer.isEmailVerified(),
-                    customer.isMarketingOptIn(), customer.getCreatedAt());
+                    customer.isMarketingOptIn(), customer.getCreatedAt(), customer.getReferralCode());
         }
     }
 

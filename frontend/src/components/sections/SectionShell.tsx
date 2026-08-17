@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import { ArrowRight } from 'lucide-react';
+import { Reveal } from '@/components/ui/Reveal';
 import type { BackgroundStyle, PublicSection } from './types';
 
 /**
@@ -43,9 +44,15 @@ export function SectionShell({
   const hasHeader =
     showHeader && Boolean(section.eyebrow || section.title || section.subtitle);
 
+  // A flat brand-colour or dark section reads as an empty rectangle without some
+  // texture; a decorative gradient/dot layer gives ACCENT and DARK sections the same
+  // "designed" feeling the IMAGE variant gets for free from its photo.
+  const decorated = section.backgroundStyle === 'ACCENT' || section.backgroundStyle === 'DARK';
+
   return (
     <section
       className={clsx(
+        'relative overflow-hidden',
         BACKGROUND_CLASSES[section.backgroundStyle],
         compact ? 'py-10' : 'py-14 lg:py-20',
       )}
@@ -76,9 +83,23 @@ export function SectionShell({
         </>
       )}
 
-      <div className={clsx('container-site', section.backgroundStyle === 'IMAGE' && 'relative')}>
+      {decorated && (
+        <>
+          <div className="gradient-mesh" aria-hidden="true" />
+          <div className="dot-grid" aria-hidden="true" />
+        </>
+      )}
+
+      <div
+        className={clsx(
+          'container-site',
+          (section.backgroundStyle === 'IMAGE' || decorated) && 'relative',
+        )}
+      >
         {hasHeader && (
-          <SectionHeader section={section} inverted={inverted} />
+          <Reveal>
+            <SectionHeader section={section} inverted={inverted} />
+          </Reveal>
         )}
         <div className={containerClassName}>{children}</div>
       </div>

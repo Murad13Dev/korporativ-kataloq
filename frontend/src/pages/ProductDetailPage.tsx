@@ -2,11 +2,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
+  Bell,
   Check,
   ChevronRight,
   Facebook,
   FileText,
+  Flame,
   Heart,
   Link2,
   Loader2,
@@ -22,6 +25,7 @@ import { CountdownTimer } from '@/components/catalog/CountdownTimer';
 import { DiscountPill } from '@/components/catalog/DiscountRibbon';
 import { ProductCard, ProductCardSkeleton } from '@/components/catalog/ProductCard';
 import { useToast } from '@/components/ui/Toast';
+import { Reveal } from '@/components/ui/Reveal';
 import { Field, inputClass } from '@/components/ui/FormField';
 import { useAddToCart } from '@/hooks/useCart';
 import { useSiteConfig } from '@/hooks/useSiteConfig';
@@ -29,6 +33,7 @@ import { useCustomerAuth } from '@/hooks/useCustomerAuth';
 import { useToggleWishlist, useWishlistIds } from '@/hooks/useWishlist';
 import { useRatingSummary, useReviews, useSubmitReview } from '@/hooks/useReviews';
 import { recordRecentlyViewed, useRecentlyViewed } from '@/hooks/useRecentlyViewed';
+import { useProductPresence } from '@/hooks/useProductPresence';
 import { ApiError, getData, postVoid } from '@/lib/api';
 import { formatDateTime, formatFileSize, formatPrice } from '@/lib/format';
 import { setJsonLd, setPageMeta } from '@/lib/theme';
@@ -94,6 +99,7 @@ export function ProductDetailPage() {
 
   const product = productQuery.data;
   const recentlyViewed = useRecentlyViewed(product?.id);
+  const viewerCount = useProductPresence(product?.id);
 
   // Which attribute a given option belongs to, so picking "Qırmızı" can be filed under
   // the "Rəng" axis without the picker needing to know that mapping ahead of time.
@@ -196,6 +202,18 @@ export function ProductDetailPage() {
                 priceCurrency: product.currency,
                 price: product.price.finalPrice,
                 availability,
+              },
+            }
+          : {}),
+        // Only emitted when the rating is actually visible on the page (same gate as
+        // the star row above) — structured data must match what a visitor can see, or
+        // it's the kind of mismatch Google's rich-result guidelines flag.
+        ...(features.reviewsEnabled && product.reviewCount > 0
+          ? {
+              aggregateRating: {
+                '@type': 'AggregateRating',
+                ratingValue: product.averageRating,
+                reviewCount: product.reviewCount,
               },
             }
           : {}),
@@ -340,17 +358,24 @@ export function ProductDetailPage() {
         <div>
           <div className="relative overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-muted)]">
             <div className="aspect-square">
-              {galleryImageUrl ? (
-                <img
-                  src={galleryImageUrl}
-                  alt={product.images[activeImage]?.alt ?? product.name}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center text-[var(--color-subtle)]">
-                  Şəkil yoxdur
-                </div>
-              )}
+              <AnimatePresence mode="wait">
+                {galleryImageUrl ? (
+                  <motion.img
+                    key={galleryImageUrl}
+                    src={galleryImageUrl}
+                    alt={product.images[activeImage]?.alt ?? product.name}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                    className="h-full w-full cursor-zoom-in object-cover transition-transform duration-500 ease-[var(--ease-out-quint)] hover:scale-110"
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-[var(--color-subtle)]">
+                    Şəkil yoxdur
+                  </div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
 
@@ -405,6 +430,25 @@ export function ProductDetailPage() {
             )}
           </div>
 
+          {/* ---- real-time social proof: honest counts, no fabricated urgency ---- */}
+          <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm">
+            {viewerCount > 0 && (
+              <span className="flex items-center gap-2 text-[var(--color-subtle)]">
+                <span
+                  className="pulse-dot inline-block h-2 w-2 rounded-full bg-[var(--color-success)] text-[var(--color-success)]"
+                  aria-hidden="true"
+                />
+                Hazırda {viewerCount} nəfər bu məhsula baxır
+              </span>
+            )}
+            {product.recentBuyerCount > 0 && (
+              <span className="flex items-center gap-1.5 font-medium text-[var(--color-sale)]">
+                <Flame size={14} aria-hidden="true" />
+                Son 7 gündə {product.recentBuyerCount} nəfər aldı
+              </span>
+            )}
+          </div>
+
           <ShareButtons title={product.name} toast={toast} />
 
           {product.shortDescription && (
@@ -414,7 +458,14 @@ export function ProductDetailPage() {
           )}
 
           {/* ---- price ---- */}
-          <div className="mt-7 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-muted)] p-5">
+          <div
+            className={clsx(
+              'mt-7 rounded-[var(--radius-card)] border p-5',
+              effectivePrice.discounted
+                ? 'border-[var(--color-sale)]/30 bg-[var(--color-sale)]/5'
+                : 'border-[var(--color-border)] bg-[var(--color-muted)]',
+            )}
+          >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <PriceDisplay price={effectivePrice} showPrice={product.showPrice} size="xl" />
               {effectivePrice.discounted && <DiscountPill price={effectivePrice} />}
@@ -429,6 +480,13 @@ export function ProductDetailPage() {
               </div>
             )}
           </div>
+
+          {/* Watching a campaign that's already running would fire the moment the sweep
+              next runs — the button only makes sense while there's a future drop to wait
+              for. */}
+          {product.showPrice && !effectivePrice.discounted && (
+            <PriceWatchForm slug={product.slug} toast={toast} />
+          )}
 
           {/* ---- variants ---- */}
           {hasVariants && (
@@ -684,40 +742,40 @@ export function ProductDetailPage() {
 
       {/* ---------------- related ---------------- */}
       {relatedQuery.data && relatedQuery.data.length > 0 && (
-        <section className="mt-16">
+        <Reveal as="section" className="mt-16">
           <h2 className="mb-6 text-2xl font-bold tracking-tight">Oxşar məhsullar</h2>
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="stagger-fade grid grid-cols-2 gap-4 lg:grid-cols-4">
             {relatedQuery.data.map((related) => (
               <ProductCard key={related.id} product={related} />
             ))}
           </div>
-        </section>
+        </Reveal>
       )}
 
       {/* ---------------- also bought (real order co-occurrence) ---------------- */}
       {alsoBoughtQuery.data && alsoBoughtQuery.data.length > 0 && (
-        <section className="mt-16">
+        <Reveal as="section" className="mt-16">
           <h2 className="mb-6 text-2xl font-bold tracking-tight">Bunu alanlar bunu da aldı</h2>
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="stagger-fade grid grid-cols-2 gap-4 lg:grid-cols-4">
             {alsoBoughtQuery.data.map((item) => (
               <ProductCard key={item.id} product={item} />
             ))}
           </div>
-        </section>
+        </Reveal>
       )}
 
       {/* ---------------- recently viewed ---------------- */}
       {(recentlyViewed.isLoading || recentlyViewed.products.length > 0) && (
-        <section className="mt-16">
+        <Reveal as="section" className="mt-16">
           <h2 className="mb-6 text-2xl font-bold tracking-tight">Son baxdıqlarınız</h2>
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="stagger-fade grid grid-cols-2 gap-4 lg:grid-cols-4">
             {recentlyViewed.isLoading
               ? Array.from({ length: 4 }).map((_, index) => <ProductCardSkeleton key={index} />)
               : recentlyViewed.products.map((viewed) => (
                   <ProductCard key={viewed.id} product={viewed} />
                 ))}
           </div>
-        </section>
+        </Reveal>
       )}
 
       {/* ---------------- reviews ---------------- */}
@@ -804,6 +862,73 @@ function ProductDetailSkeleton() {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Collapsed by default — unlike the stock-notify form (shown only on the rare, urgent
+ * out-of-stock state), this could render on almost every product page, and a full email
+ * input sitting open on every listing would be noise. One click reveals it.
+ */
+function PriceWatchForm({ slug, toast }: { slug: string; toast: ReturnType<typeof useToast> }) {
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState('');
+  const [sent, setSent] = useState(false);
+
+  const subscribe = useMutation({
+    mutationFn: () => postVoid(`/public/products/${slug}/price-watch`, { email }),
+    onSuccess: () => setSent(true),
+    onError: (error: unknown) =>
+      toast.error(error instanceof ApiError ? error.message : 'Abunə olmaq mümkün olmadı'),
+  });
+
+  if (sent) {
+    return (
+      <p className="mt-4 flex items-center gap-2 text-sm text-[var(--color-success)]">
+        <Bell size={15} aria-hidden="true" />
+        Qeyd edildi — endirim başlayanda sizə xəbər verəcəyik.
+      </p>
+    );
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mt-4 flex items-center gap-1.5 text-sm font-medium text-[var(--color-subtle)] hover:text-[var(--color-primary)]"
+      >
+        <Bell size={15} aria-hidden="true" />
+        Qiymət düşəndə xəbər ver
+      </button>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        subscribe.mutate();
+      }}
+      className="mt-4 flex flex-wrap gap-2"
+    >
+      <input
+        type="email"
+        required
+        autoFocus
+        value={email}
+        onChange={(event) => setEmail(event.target.value)}
+        placeholder="E-poçt ünvanınız"
+        className={clsx(inputClass(false), 'flex-1')}
+      />
+      <button
+        type="submit"
+        disabled={subscribe.isPending}
+        className="rounded-[var(--radius-button)] border border-[var(--color-border)] px-4 py-2.5 text-sm font-semibold text-[var(--color-body)] transition-colors hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] disabled:opacity-60"
+      >
+        İzləməyə al
+      </button>
+    </form>
   );
 }
 

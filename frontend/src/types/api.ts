@@ -236,6 +236,8 @@ export interface ProductDetail extends Omit<ProductCard, 'imageUrl' | 'imageAlt'
   variantAttributes: VariantAttribute[];
   averageRating: number;
   reviewCount: number;
+  /** Distinct orders containing this product in the last 7 days — real order data. */
+  recentBuyerCount: number;
 }
 
 export interface ProductBundle {
@@ -357,6 +359,14 @@ export interface Cart {
   /** Non-fatal problems found while re-pricing; rendered as banners. */
   notices: CartNotice[];
   checkoutAllowed: boolean;
+}
+
+/** Response shape shared by reorder and B2B bulk CSV import — both add several known
+    products to the cart at once, and neither can fail as a single unit. */
+export interface BulkAddResponse {
+  cart: Cart;
+  addedCount: number;
+  skipped: string[];
 }
 
 export interface CartLine {
@@ -601,6 +611,8 @@ export interface CustomerProfile {
   emailVerified: boolean;
   marketingOptIn: boolean;
   createdAt: string;
+  /** This customer's own shareable "invite a friend" code. */
+  referralCode: string | null;
 }
 
 export interface CustomerAuthResponse {

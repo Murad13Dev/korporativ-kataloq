@@ -4,6 +4,7 @@ import az.catalog.common.domain.ContentStatus;
 import az.catalog.modules.catalog.category.CategoryRepository;
 import az.catalog.modules.catalog.discount.DiscountRepository;
 import az.catalog.modules.catalog.product.Product;
+import az.catalog.modules.catalog.product.ProductPresenceService;
 import az.catalog.modules.catalog.product.ProductRepository;
 import az.catalog.modules.commerce.customer.CustomerRepository;
 import az.catalog.modules.commerce.order.Order;
@@ -23,6 +24,9 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Aggregates the admin landing screen.
@@ -45,6 +49,7 @@ public class DashboardService {
     private final MediaFileRepository mediaFileRepository;
     private final LanguageService languageService;
     private final SiteConfigurationService siteConfigurationService;
+    private final ProductPresenceService presenceService;
 
     /**
      * Blog posts and contact requests have tables but no service module yet, so their
@@ -83,6 +88,41 @@ public class DashboardService {
                 recentContactRequests(),
                 lowStockProducts(language, defaultLanguage),
                 buildAlerts(products, orders, content, discounts));
+    }
+
+    /**
+     * The one truly "live" tile on the dashboard — everything else here is a query result
+     * as of the moment the page loaded, but this reads the same in-memory presence map the
+     * storefront's own "N people viewing" badge does, so an admin watching this screen
+     * sees traffic land in something close to real time.
+     */
+    @Transactional(readOnly = true)
+    public DashboardDtos.LiveVisitorsSnapshot liveVisitors(String language) {
+        Map<Long, Integer> byProduct = presenceService.snapshot();
+        if (byProduct.isEmpty()) {
+            return new DashboardDtos.LiveVisitorsSnapshot(0, List.of());
+        }
+
+        String fallback = languageService.defaultLanguageCode();
+        Map<Long, Product> products = productRepository.findAllById(byProduct.keySet()).stream()
+                .collect(Collectors.toMap(Product::getId, p -> p));
+
+        int total = byProduct.values().stream().mapToInt(Integer::intValue).sum();
+        List<DashboardDtos.LiveProduct> top = byProduct.entrySet().stream()
+                .limit(RECENT_LIMIT)
+                .map(entry -> {
+                    Product product = products.get(entry.getKey());
+                    if (product == null) {
+                        return null;
+                    }
+                    var translation = product.translation(language, fallback);
+                    String name = translation != null ? translation.getName() : product.getSku();
+                    return new DashboardDtos.LiveProduct(product.getId(), name, product.getSlug(), entry.getValue());
+                })
+                .filter(Objects::nonNull)
+                .toList();
+
+        return new DashboardDtos.LiveVisitorsSnapshot(total, top);
     }
 
     // -----------------------------------------------------------------------
