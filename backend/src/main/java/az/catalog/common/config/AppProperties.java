@@ -28,6 +28,7 @@ public class AppProperties {
     private Commerce commerce = new Commerce();
     private Payment payment = new Payment();
     private Chat chat = new Chat();
+    private Push push = new Push();
 
     @Getter
     @Setter
@@ -116,6 +117,9 @@ public class AppProperties {
         private BigDecimal defaultDeliveryPrice = new BigDecimal("5");
         private boolean guestCheckoutEnabled = true;
         private int paymentWindowMinutes = 30;
+        /** How long a known customer's cart sits untouched before the one-time
+            "did you forget something?" reminder e-mail goes out. */
+        private Duration cartReminderAfter = Duration.ofHours(6);
     }
 
     @Getter
@@ -141,5 +145,14 @@ public class AppProperties {
     public static class Chat {
         private boolean enabled = true;
         private int autoCloseAfterHours = 72;
+    }
+
+    @Getter
+    @Setter
+    public static class Push {
+        /** Left blank on purpose — an auto-generated, DB-persisted pair is used instead.
+            See {@code VapidKeyService}. */
+        private String publicKey = "";
+        private String privateKey = "";
     }
 }

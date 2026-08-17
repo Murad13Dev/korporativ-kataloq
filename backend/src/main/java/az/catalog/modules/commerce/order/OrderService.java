@@ -10,6 +10,7 @@ import az.catalog.modules.commerce.cart.CartOwner;
 import az.catalog.modules.commerce.cart.CartService;
 import az.catalog.modules.commerce.customer.ReferralService;
 import az.catalog.modules.commerce.loyalty.LoyaltyService;
+import az.catalog.modules.notification.push.PushNotificationService;
 import az.catalog.modules.commerce.promo.PromoCode;
 import az.catalog.modules.commerce.promo.PromoCodeRepository;
 import az.catalog.modules.commerce.promo.PromoCodeService;
@@ -45,6 +46,7 @@ public class OrderService {
     private final LoyaltyService loyaltyService;
     private final ReferralService referralService;
     private final CartService cartService;
+    private final PushNotificationService pushNotificationService;
     private final PromoCodeService promoCodeService;
     private final PromoCodeRepository promoCodeRepository;
     private final MailService mailService;
@@ -225,6 +227,13 @@ public class OrderService {
                 || target == OrderStatus.CANCELLED || target == OrderStatus.REFUNDED) {
             mailService.sendOrderStatusChanged(order.getCustomerEmail(), order.getCustomerName(),
                     order.getOrderNumber(), target.label(), orderLink(order));
+
+            // Best-effort, alongside the e-mail rather than instead of it — a guest order
+            // simply has no subscribed device and this quietly no-ops.
+            if (order.getCustomer() != null) {
+                pushNotificationService.sendToCustomer(order.getCustomer().getId(),
+                        "Sifariş #" + order.getOrderNumber(), target.label(), orderLink(order));
+            }
         }
     }
 

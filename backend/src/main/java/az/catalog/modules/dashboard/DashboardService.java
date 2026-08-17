@@ -23,6 +23,7 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -123,6 +124,55 @@ public class DashboardService {
                 .toList();
 
         return new DashboardDtos.LiveVisitorsSnapshot(total, top);
+    }
+
+    private static final int VELOCITY_WINDOW_DAYS = 30;
+    private static final int FORECAST_ALERT_DAYS = 14;
+
+    /**
+     * "Anbar radar" — unlike {@link #lowStockProducts}, which only flags what's already
+     * thin, this projects forward from real sales velocity so an operator can reorder
+     * before the count actually hits zero. A product with no sales in the window has no
+     * defined runway and is excluded rather than reported as "infinite days left".
+     */
+    @Transactional(readOnly = true)
+    public List<DashboardDtos.StockForecastItem> stockForecast(String language) {
+        OffsetDateTime since = OffsetDateTime.now().minusDays(VELOCITY_WINDOW_DAYS);
+        List<ProductRepository.StockVelocityRow> rows = productRepository.findStockVelocity(since);
+        if (rows.isEmpty()) {
+            return List.of();
+        }
+
+        String fallback = languageService.defaultLanguageCode();
+        Map<Long, Product> products = productRepository.findAllById(
+                        rows.stream().map(ProductRepository.StockVelocityRow::getId).toList()).stream()
+                .collect(Collectors.toMap(Product::getId, p -> p));
+
+        record Projected(ProductRepository.StockVelocityRow row, double dailyVelocity, int daysRemaining) {
+        }
+
+        return rows.stream()
+                .map(row -> {
+                    double dailyVelocity = row.getSold() / (double) VELOCITY_WINDOW_DAYS;
+                    int daysRemaining = (int) Math.floor(row.getStockQuantity() / dailyVelocity);
+                    return new Projected(row, dailyVelocity, daysRemaining);
+                })
+                .filter(projected -> projected.daysRemaining() <= FORECAST_ALERT_DAYS)
+                .sorted(Comparator.comparingInt(Projected::daysRemaining))
+                .limit(RECENT_LIMIT)
+                .map(projected -> {
+                    Product product = products.get(projected.row().getId());
+                    if (product == null) {
+                        return null;
+                    }
+                    var translation = product.translation(language, fallback);
+                    String name = translation != null ? translation.getName() : product.getSku();
+                    return new DashboardDtos.StockForecastItem(
+                            product.getId(), name, product.getSku(), projected.row().getStockQuantity(),
+                            Math.round(projected.dailyVelocity() * 100) / 100.0, projected.daysRemaining());
+                })
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     // -----------------------------------------------------------------------

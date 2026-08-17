@@ -45,4 +45,8 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
     Optional<Customer> findByReferralCodeIgnoreCase(String referralCode);
 
     boolean existsByReferralCodeIgnoreCase(String referralCode);
+
+    Optional<Customer> findByWishlistShareTokenIgnoreCase(String token);
+
+    boolean existsByWishlistShareTokenIgnoreCase(String token);
 }

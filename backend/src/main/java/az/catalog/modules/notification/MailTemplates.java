@@ -117,6 +117,18 @@ public class MailTemplates {
                 """.formatted(escape(productName), button("Məhsula bax", productLink)));
     }
 
+    public String cartReminder(String name, String firstItemName, int itemCount, String cartLink) {
+        String itemsLine = itemCount > 1
+                ? "%s və daha %d məhsul".formatted(escape(firstItemName), itemCount - 1)
+                : escape(firstItemName);
+        return wrap("Səbətinizi unutmusunuz?", """
+                <p>Salam, %s.</p>
+                <p>Səbətinizdə hələ də <strong>%s</strong> gözləyir — kampaniyalar dəyişə bilər,
+                   sifarişinizi indi tamamlamağınızı tövsiyə edirik.</p>
+                %s
+                """.formatted(escape(name), itemsLine, button("Səbətə qayıt", cartLink)));
+    }
+
     public String referralReward(String name, String promoCode, BigDecimal amount, String siteUrl) {
         return wrap("Dəvət mükafatınız hazırdır", """
                 <p>Salam, %s.</p>

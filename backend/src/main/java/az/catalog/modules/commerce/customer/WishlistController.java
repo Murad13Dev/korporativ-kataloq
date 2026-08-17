@@ -44,4 +44,11 @@ public class WishlistController {
         service.remove(SecurityUtils.requireCustomer().id(), productId);
         return ResponseEntity.noContent().build();
     }
+
+    @Operation(summary = "Paylaşım linki",
+            description = "İlk çağırışda yaradılır, sonra dəyişmir — /api/public/wishlist/{token} ilə açıqdır.")
+    @PostMapping("/share")
+    public DataResponse<String> share() {
+        return DataResponse.of(service.getOrCreateShareToken(SecurityUtils.requireCustomer().id()));
+    }
 }

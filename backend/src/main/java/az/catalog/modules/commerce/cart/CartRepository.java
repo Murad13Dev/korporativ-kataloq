@@ -63,4 +63,23 @@ public interface CartRepository extends JpaRepository<Cart, Long> {
               AND size(c.items) > 0
             """)
     long countActiveNonEmpty();
+
+    /**
+     * Candidates for the "did you forget something?" e-mail — scoped to known customers
+     * only (a guest cart has no address to mail), untouched for a while, never reminded.
+     * Deliberately independent of {@link #markAbandoned}: that job runs on a 30-day
+     * housekeeping horizon, this one on an hours-long commercial-recovery horizon, and
+     * conflating the two would mean either a reminder a month late or a report that
+     * calls a 4-hour-old cart "abandoned".
+     */
+    @EntityGraph(attributePaths = {"items", "items.product", "customer"})
+    @Query("""
+            SELECT c FROM Cart c
+            WHERE c.status = az.catalog.modules.commerce.cart.Cart$Status.ACTIVE
+              AND c.customer IS NOT NULL
+              AND size(c.items) > 0
+              AND c.updatedAt < :cutoff
+              AND c.abandonedReminderSentAt IS NULL
+            """)
+    List<Cart> findNeedingAbandonmentReminder(@Param("cutoff") OffsetDateTime cutoff);
 }

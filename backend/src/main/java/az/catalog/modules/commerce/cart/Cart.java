@@ -70,6 +70,12 @@ public class Cart extends BaseEntity {
     @Column(name = "expires_at")
     private OffsetDateTime expiresAt;
 
+    /** Set once the abandonment-recovery email has gone out — a separate, much sooner
+        signal than {@link Status#ABANDONED} (30 days, for reporting); this fires once,
+        a few hours after the cart went idle, while the shopper still remembers it. */
+    @Column(name = "abandoned_reminder_sent_at")
+    private OffsetDateTime abandonedReminderSentAt;
+
     @OneToMany(mappedBy = "cart", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     private List<CartItem> items = new ArrayList<>();

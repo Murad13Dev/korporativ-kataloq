@@ -26,6 +26,7 @@
         <owasp.sanitizer.version>20240325.1</owasp.sanitizer.version>
         <testcontainers.version>1.20.4</testcontainers.version>
         <stripe.version>24.16.0</stripe.version>
+        <web-push.version>5.1.2</web-push.version>
     </properties>
 
     <dependencies>
@@ -117,6 +118,31 @@
             <groupId>com.stripe</groupId>
             <artifactId>stripe-java</artifactId>
             <version>${stripe.version}</version>
+        </dependency>
+
+        <!-- Web Push (order-status browser notifications); VAPID + payload encryption, BouncyCastle-backed.
+             bcprov and httpclient are declared `optional` in web-push's own POM, so Maven does not pull
+             them in transitively — both are required directly for the types this module references
+             (BouncyCastle's EC key interfaces, org.apache.http.HttpResponse from PushService#send). -->
+        <dependency>
+            <groupId>nl.martijndwars</groupId>
+            <artifactId>web-push</artifactId>
+            <version>${web-push.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk15on</artifactId>
+            <version>1.70</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <version>4.5.14</version>
+        </dependency>
+        <dependency>
+            <groupId>org.bitbucket.b_c</groupId>
+            <artifactId>jose4j</artifactId>
+            <version>0.7.9</version>
         </dependency>
 
         <!-- Docs -->

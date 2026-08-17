@@ -35,6 +35,7 @@ const AccountCompanyPage = lazy(() => import('@/pages/AccountCompanyPage'));
 const AccountQuotesPage = lazy(() => import('@/pages/AccountQuotesPage'));
 const OrderTrackingPage = lazy(() => import('@/pages/OrderTrackingPage'));
 const ComparePage = lazy(() => import('@/pages/ComparePage'));
+const SharedWishlistPage = lazy(() => import('@/pages/SharedWishlistPage'));
 
 // The admin panel is its own chunk entirely — a shopper never downloads it.
 const AdminApp = lazy(() => import('@/admin/AdminApp'));
@@ -69,6 +70,7 @@ export function App() {
 
             <Route path="sifarisi-izle" element={<OrderTrackingPage />} />
             <Route path="muqayise" element={<ComparePage />} />
+            <Route path="sevimliler/paylas/:token" element={<SharedWishlistPage />} />
 
             <Route path="hesab/giris" element={<AccountLoginPage />} />
             <Route path="hesab/qeydiyyat" element={<AccountRegisterPage />} />

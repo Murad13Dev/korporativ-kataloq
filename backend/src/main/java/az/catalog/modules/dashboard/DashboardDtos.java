@@ -128,4 +128,25 @@ public final class DashboardDtos {
 
     public record LiveProduct(Long id, String name, String slug, int viewers) {
     }
+
+    /**
+     * "Anbar radar" — a product's sell-through rate projected against its current stock.
+     * @param dailyVelocity units/day averaged over the last 30 days of real orders
+     * @param estimatedDaysRemaining {@code stockQuantity / dailyVelocity}, floored
+     */
+    public record StockForecastItem(
+            Long id, String name, String sku, int stockQuantity, double dailyVelocity, int estimatedDaysRemaining) {
+    }
+
+    /** How much of the catalog/content actually exists in one non-default language. */
+    public record LanguageCoverage(
+            String code, String name,
+            ContentCoverage products, ContentCoverage categories, ContentCoverage posts, ContentCoverage pages) {
+    }
+
+    public record ContentCoverage(long total, long translated) {
+        public long missing() {
+            return total - translated;
+        }
+    }
 }

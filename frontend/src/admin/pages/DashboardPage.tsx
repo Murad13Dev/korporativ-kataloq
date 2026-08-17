@@ -4,11 +4,13 @@ import clsx from 'clsx';
 import {
   AlertTriangle,
   ArrowRight,
+  Globe,
   Info,
   Package,
   Radio,
   ShoppingBag,
   Tag,
+  TrendingDown,
   TrendingUp,
   UsersRound,
 } from 'lucide-react';
@@ -58,6 +60,29 @@ interface LiveVisitors {
   topProducts: { id: number; name: string; slug: string; viewers: number }[];
 }
 
+interface StockForecastItem {
+  id: number;
+  name: string;
+  sku: string;
+  stockQuantity: number;
+  dailyVelocity: number;
+  estimatedDaysRemaining: number;
+}
+
+interface ContentCoverage {
+  total: number;
+  translated: number;
+}
+
+interface LanguageCoverage {
+  code: string;
+  name: string;
+  products: ContentCoverage;
+  categories: ContentCoverage;
+  posts: ContentCoverage;
+  pages: ContentCoverage;
+}
+
 export function DashboardPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'dashboard'],
@@ -72,6 +97,18 @@ export function DashboardPage() {
     queryFn: () => getData<LiveVisitors>('/admin/dashboard/live-visitors'),
     staleTime: 8 * 1000,
     refetchInterval: 10 * 1000,
+  });
+
+  const stockForecast = useQuery({
+    queryKey: ['admin', 'dashboard', 'stock-forecast'],
+    queryFn: () => getData<StockForecastItem[]>('/admin/dashboard/stock-forecast'),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const translationCoverage = useQuery({
+    queryKey: ['admin', 'dashboard', 'translation-coverage'],
+    queryFn: () => getData<LanguageCoverage[]>('/admin/dashboard/translation-coverage'),
+    staleTime: 5 * 60 * 1000,
   });
 
   if (isLoading || !data) {
@@ -261,6 +298,35 @@ export function DashboardPage() {
             )}
           </Card>
 
+          {stockForecast.data && stockForecast.data.length > 0 && (
+            <Card
+              title="Anbar radar"
+              actions={<TrendingDown size={15} className="text-[var(--color-warning)]" aria-hidden="true" />}
+              bodyClassName="p-0"
+            >
+              <ul className="divide-y divide-[var(--color-border)]">
+                {stockForecast.data.map((item) => (
+                  <li key={item.id}>
+                    <Link
+                      to={`/admin/products/${item.id}`}
+                      className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-[var(--color-muted)]"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-[var(--color-heading)]">{item.name}</p>
+                        <p className="text-xs text-[var(--color-subtle)]">
+                          {item.stockQuantity} ədəd qalıb · günə ~{item.dailyVelocity} satılır
+                        </p>
+                      </div>
+                      <Badge tone={item.estimatedDaysRemaining <= 7 ? 'danger' : 'warning'}>
+                        ~{item.estimatedDaysRemaining} gün
+                      </Badge>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+
           <Card title="Müştərilər">
             <dl className="space-y-3 text-sm">
               <div className="flex items-center justify-between">
@@ -286,9 +352,56 @@ export function DashboardPage() {
               </div>
             </dl>
           </Card>
+
+          {translationCoverage.data && translationCoverage.data.length > 0 && (
+            <Card
+              title="Tərcümə tamlığı"
+              actions={<Globe size={15} className="text-[var(--color-primary)]" aria-hidden="true" />}
+            >
+              <div className="space-y-4">
+                {translationCoverage.data.map((lang) => (
+                  <div key={lang.code}>
+                    <p className="mb-2 text-sm font-semibold text-[var(--color-heading)]">
+                      {lang.name} <span className="text-xs font-normal text-[var(--color-subtle)]">({lang.code})</span>
+                    </p>
+                    <div className="space-y-1.5 text-xs">
+                      <CoverageRow label="Məhsullar" coverage={lang.products} />
+                      <CoverageRow label="Kateqoriyalar" coverage={lang.categories} />
+                      <CoverageRow label="Bloq" coverage={lang.posts} />
+                      <CoverageRow label="Səhifələr" coverage={lang.pages} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
         </div>
       </div>
     </>
+  );
+}
+
+function CoverageRow({ label, coverage }: { label: string; coverage: ContentCoverage }) {
+  if (coverage.total === 0) {
+    return null;
+  }
+  const percent = Math.round((coverage.translated / coverage.total) * 100);
+  return (
+    <div className="flex items-center gap-2">
+      <span className="w-24 shrink-0 text-[var(--color-subtle)]">{label}</span>
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--color-muted)]">
+        <div
+          className={clsx(
+            'h-full rounded-full',
+            percent === 100 ? 'bg-[var(--color-success)]' : 'bg-[var(--color-primary)]',
+          )}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+      <span className="w-16 shrink-0 text-end tabular text-[var(--color-subtle)]">
+        {coverage.translated}/{coverage.total}
+      </span>
+    </div>
   );
 }
 

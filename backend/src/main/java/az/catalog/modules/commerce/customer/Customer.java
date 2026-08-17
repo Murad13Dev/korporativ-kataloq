@@ -97,6 +97,11 @@ public class Customer extends SoftDeletableEntity {
     @Column(name = "referral_rewarded_at")
     private OffsetDateTime referralRewardedAt;
 
+    /** Null until the customer first asks to share their wishlist — generated on demand,
+        not at registration, since most customers never will. */
+    @Column(name = "wishlist_share_token", length = 24)
+    private String wishlistShareToken;
+
     public String fullName() {
         return firstName + " " + lastName;
     }

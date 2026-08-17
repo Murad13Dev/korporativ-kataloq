@@ -14,6 +14,7 @@ import az.catalog.modules.commerce.customer.CustomerRepository;
 import az.catalog.modules.commerce.promo.PromoCode;
 import az.catalog.modules.commerce.promo.PromoCodeService;
 import az.catalog.modules.language.LanguageService;
+import az.catalog.modules.notification.MailService;
 import az.catalog.modules.siteconfig.SiteConfigSnapshot;
 import az.catalog.modules.siteconfig.SiteConfigurationService;
 import lombok.RequiredArgsConstructor;
@@ -54,6 +55,7 @@ public class CartService {
     private final PromoCodeService promoCodeService;
     private final LanguageService languageService;
     private final SiteConfigurationService siteConfigurationService;
+    private final MailService mailService;
     private final AppProperties properties;
 
     // =======================================================================
@@ -603,5 +605,44 @@ public class CartService {
         if (updated > 0) {
             log.info("Marked {} idle carts as abandoned", updated);
         }
+    }
+
+    /**
+     * "Did you forget something?" — a cart still sitting there a few hours after the
+     * last touch, for a customer we can actually reach by e-mail. Every 30 minutes is
+     * frequent enough that the reminder still feels timely against a multi-hour
+     * threshold, without hammering the query on every cart write.
+     */
+    @Scheduled(fixedDelay = 30 * 60 * 1000)
+    @Transactional
+    public void sendAbandonmentReminders() {
+        OffsetDateTime cutoff = OffsetDateTime.now().minus(properties.getCommerce().getCartReminderAfter());
+        List<Cart> candidates = cartRepository.findNeedingAbandonmentReminder(cutoff);
+        if (candidates.isEmpty()) {
+            return;
+        }
+
+        String fallback = languageService.defaultLanguageCode();
+        OffsetDateTime now = OffsetDateTime.now();
+
+        for (Cart cart : candidates) {
+            Customer customer = cart.getCustomer();
+            if (customer == null || customer.getEmail() == null) {
+                continue;
+            }
+            Product firstProduct = cart.getItems().get(0).getProduct();
+            String firstItemName = firstProduct == null
+                    ? "məhsul"
+                    : Optional.ofNullable(firstProduct.translation(fallback, fallback))
+                            .map(t -> t.getName())
+                            .orElse(firstProduct.getSku());
+
+            mailService.sendCartReminder(
+                    customer.getEmail(), customer.getFirstName(),
+                    firstItemName, cart.getItems().size(),
+                    properties.getPublicUrl() + "/sebet");
+            cart.setAbandonedReminderSentAt(now);
+        }
+        log.info("Sent {} cart-abandonment reminder(s)", candidates.size());
     }
 }

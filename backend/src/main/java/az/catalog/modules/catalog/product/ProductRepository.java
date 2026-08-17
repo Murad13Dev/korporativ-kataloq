@@ -296,4 +296,31 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
               AND o.created_at >= :since
             """, nativeQuery = true)
     long countRecentBuyers(@Param("productId") Long productId, @Param("since") OffsetDateTime since);
+
+    /** One row of sell-through data for the admin "stock radar" — see {@code StockVelocityRow}. */
+    interface StockVelocityRow {
+        Long getId();
+        Integer getStockQuantity();
+        Long getSold();
+    }
+
+    /**
+     * Candidates for "will run out soon": tracked, in-stock products that have actually
+     * sold something in the window — a product with zero recent sales has an undefined
+     * (infinite) runway, not an urgent one, so the {@code HAVING} clause excludes it here
+     * rather than making the caller filter out a division by zero.
+     */
+    @Query(value = """
+            SELECT p.id AS id, p.stock_quantity AS stockQuantity, COALESCE(SUM(oi.quantity), 0) AS sold
+            FROM products p
+            LEFT JOIN order_items oi ON oi.product_id = p.id
+            LEFT JOIN orders o ON o.id = oi.order_id
+                AND o.status NOT IN ('CANCELLED', 'EXPIRED')
+                AND o.created_at >= :since
+            WHERE p.deleted_at IS NULL AND p.status = 'ACTIVE'
+              AND p.track_stock = TRUE AND p.stock_quantity > 0
+            GROUP BY p.id, p.stock_quantity
+            HAVING COALESCE(SUM(oi.quantity), 0) > 0
+            """, nativeQuery = true)
+    List<StockVelocityRow> findStockVelocity(@Param("since") OffsetDateTime since);
 }

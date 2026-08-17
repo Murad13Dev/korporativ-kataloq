@@ -97,6 +97,11 @@ public class MailService {
         send(to, "Dəvət mükafatınız hazırdır", templates.referralReward(name, promoCode, amount, properties.getPublicUrl()));
     }
 
+    @Async
+    public void sendCartReminder(String to, String name, String firstItemName, int itemCount, String cartLink) {
+        send(to, "Səbətinizi unutmusunuz?", templates.cartReminder(name, firstItemName, itemCount, cartLink));
+    }
+
     private void send(String to, String subject, String htmlBody) {
         if (to == null || to.isBlank()) {
             return;

@@ -1,10 +1,11 @@
 import { useForm } from 'react-hook-form';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Copy, Gift, KeyRound, PiggyBank, Save } from 'lucide-react';
+import { Bell, BellOff, BellRing, Copy, Gift, KeyRound, PiggyBank, Save } from 'lucide-react';
 import { Field, inputClass } from '@/components/ui/FormField';
 import { AnimatedCounter } from '@/components/ui/AnimatedCounter';
 import { useToast } from '@/components/ui/Toast';
 import { useCustomerAuth, type UpdateProfilePayload } from '@/hooks/useCustomerAuth';
+import { usePushSubscription } from '@/hooks/usePushSubscription';
 import { apiClient, ApiError, getData } from '@/lib/api';
 import { formatPrice } from '@/lib/format';
 
@@ -13,8 +14,77 @@ export default function AccountProfilePage() {
     <div className="space-y-6">
       <SavingsWallet />
       <ReferralCard />
+      <PushNotificationCard />
       <ProfileForm />
       <PasswordForm />
+    </div>
+  );
+}
+
+/**
+ * Opt-in browser push for order-status changes (shipped / delivered / cancelled /
+ * refunded) — see PushNotificationService on the backend for the sender side. Hidden
+ * entirely on unsupported browsers rather than showing a toggle that can never work.
+ */
+function PushNotificationCard() {
+  const { state, subscribe, unsubscribe } = usePushSubscription();
+  const toast = useToast();
+
+  if (state === 'unsupported' || state === 'checking') {
+    return null;
+  }
+
+  const isSubscribed = state === 'subscribed';
+
+  const onToggle = async () => {
+    try {
+      if (isSubscribed) {
+        await unsubscribe();
+        toast.success('Push bildirişləri deaktiv edildi');
+      } else {
+        await subscribe();
+        if (Notification.permission === 'granted') {
+          toast.success('Push bildirişləri aktivləşdirildi');
+        } else {
+          toast.error('Bildiriş icazəsi verilmədi');
+        }
+      }
+    } catch {
+      toast.error('Bir xəta baş verdi, yenidən cəhd edin');
+    }
+  };
+
+  return (
+    <div className="card p-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          {isSubscribed ? (
+            <BellRing size={20} className="mt-0.5 shrink-0 text-[var(--color-primary)]" aria-hidden="true" />
+          ) : (
+            <Bell size={20} className="mt-0.5 shrink-0 text-[var(--color-subtle)]" aria-hidden="true" />
+          )}
+          <div>
+            <h2 className="text-sm font-bold uppercase tracking-wide text-[var(--color-subtle)]">
+              Sifariş bildirişləri
+            </h2>
+            <p className="mt-1 text-sm text-[var(--color-body)]">
+              Sifarişiniz göndərildikdə, çatdırıldıqda və ya statusu dəyişdikdə brauzer bildirişi alın.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => void onToggle()}
+          className={
+            isSubscribed
+              ? 'flex shrink-0 items-center gap-2 rounded-[var(--radius-button)] border border-[var(--color-border)] px-4 py-2.5 text-sm font-semibold text-[var(--color-heading)] transition-colors hover:bg-[var(--color-muted)]'
+              : 'flex shrink-0 items-center gap-2 rounded-[var(--radius-button)] bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-[var(--color-primary-contrast)] transition-colors hover:bg-[var(--color-primary-hover)]'
+          }
+        >
+          {isSubscribed ? <BellOff size={15} aria-hidden="true" /> : <Bell size={15} aria-hidden="true" />}
+          {isSubscribed ? 'Deaktiv et' : 'Aktivləşdir'}
+        </button>
+      </div>
     </div>
   );
 }

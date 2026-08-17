@@ -186,6 +186,13 @@ app:
     # Auto-close conversations with no activity for N hours
     auto-close-after-hours: 72
 
+  push:
+    # Both blank by default: a keypair is generated once on first boot and persisted
+    # to the vapid_keys table (see VapidKeyService) — set these only to pin a specific
+    # keypair across a from-scratch database, e.g. when moving to a new environment.
+    public-key: ${VAPID_PUBLIC_KEY:}
+    private-key: ${VAPID_PRIVATE_KEY:}
+
 ---
 spring:
   config:
